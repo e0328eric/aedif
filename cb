@@ -24,7 +24,7 @@ SRCS = [
     "./src/main.c",
     "./src/lua_debug.c",
     "./src/conversion.c",
-    "./src/registered_funcs.c",
+    "./src/aedif_lua_module.c",
     "./src/predefined_vars.c",
     "./src/project_data.c",
 ]

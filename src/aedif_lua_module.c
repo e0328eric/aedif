@@ -6,12 +6,12 @@
 
 #include <dynString.h>
 
+#include "aedif_lua_module.h"
 #include "conversion.h"
 #include "err_print_syntax.h"
 #include "lua_debug.h"
 #include "predefined_vars.h"
 #include "project_data.h"
-#include "registered_funcs.h"
 
 #define ASSERT(cond, msg)                                                      \
     if (!(cond))                                                               \
@@ -54,41 +54,6 @@
     RAISE_ERR("Numbers '%s' are expected at line %d. Got %d instead.",         \
               _expc_nums, line_number, _got_num)
 
-#define INIT_MEMBER(_N, _member, _size)                                        \
-    do                                                                         \
-    {                                                                          \
-        switch (lua_type(L, _N))                                               \
-        {                                                                      \
-        case LUA_TNIL:                                                         \
-            break;                                                             \
-                                                                               \
-        case LUA_TSTRING:                                                      \
-            bdata._member = malloc(sizeof(const char*));                       \
-            *bdata._member = lua_tostring(L, _N);                              \
-            bdata._size = 1;                                                   \
-            break;                                                             \
-                                                                               \
-        case LUA_TTABLE:                                                       \
-            lua_len(L, _N);                                                    \
-            bdata._size = (size_t)lua_tointeger(L, -1);                        \
-            lua_pop(L, 1);                                                     \
-            bdata._member = malloc(sizeof(const char*) * bdata._size);         \
-                                                                               \
-            for (size_t i = 0; i < bdata._size; ++i)                           \
-            {                                                                  \
-                lua_pushnumber(L, i + 1);                                      \
-                lua_gettable(L, _N);                                           \
-                bdata._member[i] = lua_tostring(L, -1);                        \
-                lua_pop(L, 1);                                                 \
-            }                                                                  \
-            break;                                                             \
-                                                                               \
-        default:                                                               \
-            RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");            \
-            break;                                                             \
-        }                                                                      \
-    } while (false)
-
 // Since there is no way to input the build_dir inside lua_Compile,
 // we made a global variable.
 const char** build_dir = NULL;
@@ -120,15 +85,47 @@ typedef struct BuildData
 /**********************/
 /* Function Signature */
 /**********************/
-void freeBuildData(BuildData* bdata);
-const char* stdType2str(StdType st);
-const char* optLevel2str(OptLevel ol);
-const String* getObjName(const char* src_name, const char* target_name);
+static int lua_RestoreSettings(lua_State* L);
+static int lua_Execute(lua_State* L);
+static int lua_Compile(lua_State* L);
+static void freeBuildData(BuildData* bdata);
+static bool initMember(lua_State* L, int num, const char*** member,
+                       size_t* size);
+static const char* stdType2str(StdType st);
+static const char* optLevel2str(OptLevel ol);
+static const String* getObjName(const char* src_name, const char* target_name);
+static const char* getCurrentOs(void);
 
 /********************************/
 /* Main Function Implementation */
 /********************************/
-int lua_RestoreSettings(lua_State* L)
+void linkAedifModule(lua_State* L)
+{
+    lua_pushglobaltable(L);
+    lua_setglobal(L, "aedif");
+
+    lua_getglobal(L, "aedif");
+
+    lua_pushstring(L, "compile");
+    lua_pushcfunction(L, lua_Compile);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "restoreSettings");
+    lua_pushcfunction(L, lua_RestoreSettings);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "execute");
+    lua_pushcfunction(L, lua_Execute);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "ostype");
+    lua_pushstring(L, getCurrentOs());
+    lua_settable(L, -3);
+
+    lua_pop(L, 1);
+}
+
+static int lua_RestoreSettings(lua_State* L)
 {
     ASSIGN_VAR(AEDIF_LANGUAGE, "LANGUAGE");
     ASSIGN_VAR(AEDIF_COMPILER, "COMPILER");
@@ -141,7 +138,7 @@ int lua_RestoreSettings(lua_State* L)
     return 0;
 }
 
-int lua_Execute(lua_State* L)
+static int lua_Execute(lua_State* L)
 {
     if (lua_type(L, 1) == LUA_TSTRING)
     {
@@ -151,7 +148,7 @@ int lua_Execute(lua_State* L)
     return 0;
 }
 
-int lua_Compile(lua_State* L)
+static int lua_Compile(lua_State* L)
 {
     // Import basic compiling settings
     char err_buffer[150];
@@ -216,9 +213,18 @@ int lua_Compile(lua_State* L)
     /******************************/
     /* Initializing other members */
     /******************************/
-    INIT_MEMBER(3, libs, libsSize);
-    INIT_MEMBER(4, libDirs, libDirsSize);
-    INIT_MEMBER(5, includes, includesSize);
+    if (!initMember(L, 3, &bdata.libs, &bdata.libsSize))
+    {
+        RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");
+    }
+    if (!initMember(L, 4, &bdata.libDirs, &bdata.libDirsSize))
+    {
+        RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");
+    }
+    if (!initMember(L, 5, &bdata.includes, &bdata.includesSize))
+    {
+        RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");
+    }
 
     /*********************/
     /* Get Building type */
@@ -482,7 +488,44 @@ int lua_Compile(lua_State* L)
     return 0;
 }
 
-void freeBuildData(BuildData* bdata)
+static bool initMember(lua_State* L, int num, const char*** member,
+                       size_t* size)
+{
+    switch (lua_type(L, num))
+    {
+    case LUA_TNIL:
+        break;
+
+    case LUA_TSTRING:
+        *member = malloc(sizeof(const char*));
+        **member = lua_tostring(L, num);
+        *size = 1;
+        break;
+
+    case LUA_TTABLE:
+        lua_len(L, num);
+        *size = (size_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        *member = malloc(sizeof(const char*) * *size);
+
+        for (size_t i = 0; i < *size; ++i)
+        {
+            lua_pushnumber(L, i + 1);
+            lua_gettable(L, num);
+            (*member)[i] = lua_tostring(L, -1);
+            lua_pop(L, 1);
+        }
+        break;
+
+    default:
+        return false;
+        break;
+    }
+
+    return true;
+}
+
+static void freeBuildData(BuildData* bdata)
 {
     free(bdata->srcs);
     free(bdata->libs);
@@ -490,7 +533,7 @@ void freeBuildData(BuildData* bdata)
     free(bdata->includes);
 }
 
-const char* stdType2str(StdType st)
+static const char* stdType2str(StdType st)
 {
     switch (st)
     {
@@ -519,7 +562,7 @@ const char* stdType2str(StdType st)
     }
 }
 
-const char* optLevel2str(OptLevel ol)
+static const char* optLevel2str(OptLevel ol)
 {
     switch (ol)
     {
@@ -536,7 +579,7 @@ const char* optLevel2str(OptLevel ol)
     }
 }
 
-const String* getObjName(const char* src_name, const char* target_name)
+static const String* getObjName(const char* src_name, const char* target_name)
 {
     String* output = mkString(src_name);
 
@@ -556,8 +599,23 @@ const String* getObjName(const char* src_name, const char* target_name)
 
     appendStrBack(output, target_name);
     appendStrBack(output, "/obj/");
-	appendStrBack(output, *build_dir);
+    appendStrBack(output, *build_dir);
     appendStr(output, ".o");
 
     return output;
+}
+
+static const char* getCurrentOs(void)
+{
+#if defined(_WIN32) || defined(_WIN64)
+    return "windows";
+#elif defined(__linux__)
+    return "linux";
+#elif defined(__APPLE__)
+    return "macos";
+#elif defined(__FreeBSD__)
+    return "freeBSD";
+#else
+    return "";
+#endif
 }

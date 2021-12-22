@@ -23,18 +23,12 @@
 #include <drapeau.h>
 #include <dynString.h>
 
+#include "aedif_lua_module.h"
 #include "err_print_syntax.h"
 #include "lua_debug.h"
 #include "predefined_vars.h"
-#include "registered_funcs.h"
 
 #define AEDIF_VALID_DIR_STR "The  \xab aedif\xbc building \t  \xcd tool\xde"
-#define USAGE_MSG                                                              \
-    "C/C++ Building Tool\n"                                                    \
-    " Usage:\n"                                                                \
-    "    aedif\n"                                                              \
-    "    aedif clean\n"                                                        \
-    "    aedif install\n"
 
 extern const char** build_dir;
 
@@ -97,30 +91,6 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    DIR* check_build_exists = opendir(*build_dir);
-    if (check_build_exists != NULL)
-    {
-        if (!checkIsValidDirectory(*build_dir))
-        {
-            fprintf(stderr,
-                    AEDIF_ERROR_PREFIX "'%s' directory is already exists. "
-                                       "cannot build with aedif\n",
-                    *build_dir);
-            fprintf(stderr,
-                    AEDIF_NOTE_PREFIX
-                    "current '%s' directory is not made from aedif, and aedif "
-                    "uses the name of directory '%s'.\n",
-                    *build_dir, *build_dir);
-            closedir(check_build_exists);
-            drapeauClose();
-            return 1;
-        }
-    }
-    else
-    {
-        mkValidDirectoy(*build_dir);
-    }
-
     if (*is_clean)
     {
         String* cmdline = mkString("rm -vr ");
@@ -154,11 +124,34 @@ int main(int argc, char** argv)
 
     if (*is_build || *is_install)
     {
+        DIR* check_build_exists = opendir(*build_dir);
+        if (check_build_exists != NULL)
+        {
+            if (!checkIsValidDirectory(*build_dir))
+            {
+                fprintf(stderr,
+                        AEDIF_ERROR_PREFIX "'%s' directory is already exists. "
+                                           "cannot build with aedif\n",
+                        *build_dir);
+                fprintf(
+                    stderr,
+                    AEDIF_NOTE_PREFIX
+                    "current '%s' directory is not made from aedif, and aedif "
+                    "uses the name of directory '%s'.\n",
+                    *build_dir, *build_dir);
+                closedir(check_build_exists);
+                drapeauClose();
+                return 1;
+            }
+        }
+        else
+        {
+            mkValidDirectoy(*build_dir);
+        }
+
         lua_State* L = luaL_newstate();
         predefineVars(L);
-        lua_register(L, "Compile", lua_Compile);
-        lua_register(L, "RestoreSettings", lua_RestoreSettings);
-        lua_register(L, "Execute", lua_Execute);
+        linkAedifModule(L);
         luaL_openlibs(L);
 
         if (!is_ok(L, luaL_dofile(L, "aedif.lua")))

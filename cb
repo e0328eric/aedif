@@ -11,8 +11,8 @@ else:
 
 C_STD = "-std=c11"
 C_OPTIONS = [
-    # "-ggdb",
-    "-O3",
+    "-ggdb",
+    # "-O3",
     "-Wall",
     "-Wextra",
     "-Wpedantic",
@@ -119,10 +119,10 @@ if len(sys.argv) > 1:
             "-o",
             TARGET,
         )
-        run_with("mv", TARGET, "./build/bin")
+        run_with("mv", TARGET, "./build/bin/")
 
         if sys.argv[1] == "install" or sys.argv[1] == "i":
-            run_with("mv ./build/bin/* ~/.local/bin")
+            run_with("mv ./build/bin/* ~/.local/bin/")
 
         #### END OF COMPILE CODES ####
 

@@ -58,6 +58,9 @@
 // we made a global variable.
 const char** build_dir = NULL;
 
+// Same manner for is_clean
+extern bool* is_clean;
+
 /***********************************/
 /* Structure and Enum  Definitions */
 /***********************************/
@@ -121,6 +124,17 @@ void linkAedifModule(lua_State* L)
     lua_pushstring(L, "ostype");
     lua_pushstring(L, getCurrentOs());
     lua_settable(L, -3);
+
+	lua_pushstring(L, "isclean");
+	if (*is_clean)
+	{
+		lua_pushboolean(L, true);
+	}
+	else
+	{
+		lua_pushboolean(L, false);
+	}
+	lua_settable(L, -3);
 
     lua_pop(L, 1);
 }
@@ -586,7 +600,7 @@ static const String* getObjName(const char* src_name, const char* target_name)
     ssize_t pos = findCharReverse(output, '/');
     if (pos < 0)
     {
-        return NULL;
+        pos = 0;
     }
     clearStringBefore(output, pos);
 

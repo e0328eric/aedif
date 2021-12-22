@@ -510,6 +510,11 @@ static bool findSubcmdPosition(size_t* output, const char* subcmd_name)
     size_t hash = drapeauHash(subcmd_name);
     HashBox* hashbox = &hash_map[hash];
 
+	if (hashbox->name == NULL)
+	{
+		return false;
+	}
+
     while (hashbox != NULL && strcmp(subcmd_name, hashbox->name) != 0)
     {
         hashbox = hashbox->next;

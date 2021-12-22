@@ -30,6 +30,8 @@
 
 #define AEDIF_VALID_DIR_STR "The  \xab aedif\xbc building \t  \xcd tool\xde"
 
+// Global variables
+bool* is_clean;
 extern const char** build_dir;
 
 static bool checkIsValidDirectory(const char* dir);
@@ -46,11 +48,13 @@ int main(int argc, char** argv)
     build_dir =
         drapeauStr("dir", "./build/", "sets the directory to build", "build");
 
-    bool* is_clean = drapeauSubcmd("clean", "clean buildings");
+    is_clean = drapeauSubcmd("clean", "clean buildings");
     bool* clean_help =
         drapeauBool("help", false, "show the help message", "clean");
     const char** clean_dir =
         drapeauStr("dir", "./build/", "sets the directory to clean", "clean");
+    bool* clean_force =
+        drapeauBool("force", false, "do not ask the deletion warning", "clean");
 
     bool* is_install = drapeauSubcmd("install", "install the project");
     bool* install_help =
@@ -91,37 +95,7 @@ int main(int argc, char** argv)
         return 0;
     }
 
-    if (*is_clean)
-    {
-        String* cmdline = mkString("rm -vr ");
-        appendStr(cmdline, *clean_dir);
-
-        char buffer[50];
-        fprintf(stdout,
-                "\nDo you really want to delete %s? [y/N]: ", getStr(cmdline));
-        fgets(buffer, 49, stdin);
-        buffer[49] = '\0';
-        while (strlen(buffer) > 2 ||
-               (tolower(buffer[0]) != 'y' && tolower(buffer[0]) != 'n' &&
-                buffer[0] != '\n'))
-        {
-            fprintf(stdout, "\nEnter only 'y' or 'n', please [y/N]: ");
-            fgets(buffer, 49, stdin);
-            buffer[49] = '\0';
-        }
-
-        if (tolower(buffer[0]) == 'y')
-        {
-            printf("Cleaning all buildings\n");
-            fprintf(stdout, "%s\n", getStr(cmdline));
-            system(getStr(cmdline));
-        }
-
-        freeString(cmdline);
-        drapeauClose();
-        return 0;
-    }
-
+    // If build or install subcommand is given, make ./build file
     if (*is_build || *is_install)
     {
         DIR* check_build_exists = opendir(*build_dir);
@@ -148,40 +122,81 @@ int main(int argc, char** argv)
         {
             mkValidDirectoy(*build_dir);
         }
+    }
 
-        lua_State* L = luaL_newstate();
-        predefineVars(L);
-        linkAedifModule(L);
-        luaL_openlibs(L);
+    // Read the aedif.lua script
+    lua_State* L = luaL_newstate();
+    predefineVars(L);
+    linkAedifModule(L);
+    luaL_openlibs(L);
 
-        if (!is_ok(L, luaL_dofile(L, "aedif.lua")))
-        {
-            lua_close(L);
-            return 1;
-        }
-
+    if (!is_ok(L, luaL_dofile(L, "aedif.lua")))
+    {
         lua_close(L);
+        return 1;
+    }
 
-        if (*is_install)
+    lua_close(L);
+
+    if (*is_clean)
+    {
+        String* cmdline = mkString("rm -vr ");
+        appendStr(cmdline, *clean_dir);
+
+        if (*clean_force)
         {
-            String* cmdline = mkString("mkdir -p ");
-            fprintf(stdout,
-                    "\nInstalled in '%s'. Add this directory to PATH "
-                    "to use aedif\n",
-                    *install_dir);
-            appendStr(cmdline, *install_dir);
+            printf("Cleaning all buildings\n");
             fprintf(stdout, "%s\n", getStr(cmdline));
             system(getStr(cmdline));
-
-            clearEntireString(cmdline);
-            appendStr(cmdline, "mv ");
-            appendStr(cmdline, *build_dir);
-            appendStr(cmdline, "/bin/* ");
-            appendStr(cmdline, *install_dir);
-            fprintf(stdout, "%s\n", getStr(cmdline));
-            system(getStr(cmdline));
-            freeString(cmdline);
         }
+        else
+        {
+            char buffer[50];
+            fprintf(stdout, "\nDo you really want to execute '%s'? [y/N]: ",
+                    getStr(cmdline));
+            fgets(buffer, 49, stdin);
+            buffer[49] = '\0';
+            while (strlen(buffer) > 2 ||
+                   (tolower(buffer[0]) != 'y' && tolower(buffer[0]) != 'n' &&
+                    buffer[0] != '\n'))
+            {
+                fprintf(stdout, "\nEnter only 'y' or 'n', please [y/N]: ");
+                fgets(buffer, 49, stdin);
+                buffer[49] = '\0';
+            }
+
+            if (tolower(buffer[0]) == 'y')
+            {
+                printf("Cleaning all buildings\n");
+                fprintf(stdout, "%s\n", getStr(cmdline));
+                system(getStr(cmdline));
+            }
+        }
+
+        freeString(cmdline);
+        drapeauClose();
+        return 0;
+    }
+
+    if (*is_install)
+    {
+        String* cmdline = mkString("mkdir -p ");
+        fprintf(stdout,
+                "\nInstalled in '%s'. Add this directory to PATH "
+                "to use aedif\n",
+                *install_dir);
+        appendStr(cmdline, *install_dir);
+        fprintf(stdout, "%s\n", getStr(cmdline));
+        system(getStr(cmdline));
+
+        clearEntireString(cmdline);
+        appendStr(cmdline, "mv ");
+        appendStr(cmdline, *build_dir);
+        appendStr(cmdline, "/bin/* ");
+        appendStr(cmdline, *install_dir);
+        fprintf(stdout, "%s\n", getStr(cmdline));
+        system(getStr(cmdline));
+        freeString(cmdline);
     }
 
     // clean drapeau

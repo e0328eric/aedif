@@ -19,54 +19,141 @@
 #include <lua.h>
 #include <lualib.h>
 
-#include "commandline_parser.h"
+#define DRAPEAU_IMPL
+#include <drapeau.h>
+#include <dynString.h>
+
 #include "err_print_syntax.h"
 #include "lua_debug.h"
 #include "predefined_vars.h"
 #include "registered_funcs.h"
 
 #define AEDIF_VALID_DIR_STR "The  \xab aedif\xbc building \t  \xcd tool\xde"
+#define USAGE_MSG                                                              \
+    "C/C++ Building Tool\n"                                                    \
+    " Usage:\n"                                                                \
+    "    aedif\n"                                                              \
+    "    aedif clean\n"                                                        \
+    "    aedif install\n"
 
-static bool checkIsValidDirectory(void);
-static void mkValidDirectoy(void);
+extern const char** build_dir;
 
-// TODO(#1): make a subcommand
-// whether build, clean and install the project
-int main(int argc, const char** argv)
+static bool checkIsValidDirectory(const char* dir);
+static void mkValidDirectoy(const char* dir);
+
+int main(int argc, char** argv)
 {
-    // aedif forces to use the build directory in the main position (where
-    // aedif.lua file exists)
-    DIR* check_build_exists = opendir("./build");
+    // Parse the commandline
+    drapeauStart("aedif", "A tiny C/C++ building tool");
+
+    bool* is_build = drapeauSubcmd("build", "build the project");
+    bool* build_help =
+        drapeauBool("help", false, "show the help message", "build");
+    build_dir =
+        drapeauStr("dir", "./build/", "sets the directory to build", "build");
+
+    bool* is_clean = drapeauSubcmd("clean", "clean buildings");
+    bool* clean_help =
+        drapeauBool("help", false, "show the help message", "clean");
+    const char** clean_dir =
+        drapeauStr("dir", "./build/", "sets the directory to clean", "clean");
+
+    bool* is_install = drapeauSubcmd("install", "install the project");
+    bool* install_help =
+        drapeauBool("help", false, "show the help message", "install");
+    const char** install_dir =
+        drapeauStr("dir", "~/.local/bin/",
+                   "the directory to install the project", "install");
+
+    bool* main_help = drapeauBool("help", false, "show the help message", NULL);
+    // if any other arguments are given, then sets build_dir = main_build
+    const char** main_build =
+        drapeauStr("dir", "./build/", "sets the directory to build", NULL);
+
+    drapeauParse(argc, argv);
+
+    // If any other commandlines are given, then sets the defalut running state
+    // will be 'build' subcommand
+    if (!*is_build && !*is_clean && !*is_install)
+    {
+        *is_build = true;
+        build_dir = main_build;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    const char* err;
+    if ((err = drapeauPrintErr()) != NULL)
+    {
+        fprintf(stderr, "%s\n", err);
+        drapeauClose();
+        return 1;
+    }
+
+    if (*build_help || *clean_help || *install_help || *main_help)
+    {
+        drapeauPrintHelp(stdout);
+        drapeauClose();
+        return 0;
+    }
+
+    DIR* check_build_exists = opendir(*build_dir);
     if (check_build_exists != NULL)
     {
-        if (!checkIsValidDirectory())
+        if (!checkIsValidDirectory(*build_dir))
         {
             fprintf(stderr,
-                    AEDIF_ERROR_PREFIX "'./build' directory is already exists. "
-                                       "cannot build with aedif\n");
-            fprintf(
-                stderr, AEDIF_NOTE_PREFIX
-                "current './build' directory is not made from aedif, and aedif "
-                "uses the name of directory './build'.\n");
+                    AEDIF_ERROR_PREFIX "'%s' directory is already exists. "
+                                       "cannot build with aedif\n",
+                    *build_dir);
+            fprintf(stderr,
+                    AEDIF_NOTE_PREFIX
+                    "current '%s' directory is not made from aedif, and aedif "
+                    "uses the name of directory '%s'.\n",
+                    *build_dir, *build_dir);
             closedir(check_build_exists);
+            drapeauClose();
             return 1;
         }
     }
     else
     {
-        mkValidDirectoy();
+        mkValidDirectoy(*build_dir);
     }
 
-    ExecKind kind;
-    switch (kind = cmdParser(argc, argv))
+    if (*is_clean)
     {
-    case EXEC_KIND_CLEAN:
-        printf("Cleaning all buildings\n");
-        system("rm -r ./build");
-        return 0;
+        String* cmdline = mkString("rm -vr ");
+        appendStr(cmdline, *clean_dir);
 
-    case EXEC_KIND_BUILD:
-    case EXEC_KIND_INSTALL: {
+        char buffer[50];
+        fprintf(stdout,
+                "\nDo you really want to delete %s? [y/N]: ", getStr(cmdline));
+        fgets(buffer, 49, stdin);
+        buffer[49] = '\0';
+        while (strlen(buffer) > 2 ||
+               (tolower(buffer[0]) != 'y' && tolower(buffer[0]) != 'n' &&
+                buffer[0] != '\n'))
+        {
+            fprintf(stdout, "\nEnter only 'y' or 'n', please [y/N]: ");
+            fgets(buffer, 49, stdin);
+            buffer[49] = '\0';
+        }
+
+        if (tolower(buffer[0]) == 'y')
+        {
+            printf("Cleaning all buildings\n");
+            fprintf(stdout, "%s\n", getStr(cmdline));
+            system(getStr(cmdline));
+        }
+
+        freeString(cmdline);
+        drapeauClose();
+        return 0;
+    }
+
+    if (*is_build || *is_install)
+    {
         lua_State* L = luaL_newstate();
         predefineVars(L);
         lua_register(L, "Compile", lua_Compile);
@@ -82,31 +169,42 @@ int main(int argc, const char** argv)
 
         lua_close(L);
 
-        if (kind == EXEC_KIND_INSTALL)
+        if (*is_install)
         {
-            printf("\nInstalled in '~/.local/bin'. Add this directory to PATH "
-                   "to use aedif\n");
-			system("mkdir -p ~/.local/bin");
-            system("mv ./build/bin/* ~/.local/bin/");
+            String* cmdline = mkString("mkdir -p ");
+            fprintf(stdout,
+                    "\nInstalled in '%s'. Add this directory to PATH "
+                    "to use aedif\n",
+                    *install_dir);
+            appendStr(cmdline, *install_dir);
+            fprintf(stdout, "%s\n", getStr(cmdline));
+            system(getStr(cmdline));
+
+            clearEntireString(cmdline);
+            appendStr(cmdline, "mv ");
+            appendStr(cmdline, *build_dir);
+            appendStr(cmdline, "/bin/* ");
+            appendStr(cmdline, *install_dir);
+            fprintf(stdout, "%s\n", getStr(cmdline));
+            system(getStr(cmdline));
+            freeString(cmdline);
         }
-
-        break;
-    }
-    default:
-        fprintf(stderr, AEDIF_INTERNAL_ERR_PREFIX "Unreatchable (main)\n");
-        return 1;
     }
 
+    // clean drapeau
+    drapeauClose();
     return 0;
 }
 
-static bool checkIsValidDirectory(void)
+static bool checkIsValidDirectory(const char* dir)
 {
     char buffer[40];
     size_t len;
     memset(buffer, 0, sizeof(buffer));
+    String* file_name = mkString(dir);
+    appendStr(file_name, "/.aedif");
 
-    FILE* dummy = fopen("./build/.aedif", "rb");
+    FILE* dummy = fopen(getStr(file_name), "rb");
     if (dummy == NULL)
     {
         return false;
@@ -118,19 +216,39 @@ static bool checkIsValidDirectory(void)
     fread(buffer, len, 1, dummy);
     buffer[39] = '\0';
 
+    freeString(file_name);
+
     return (bool)(strcmp(buffer, AEDIF_VALID_DIR_STR) == 0);
 }
 
-static void mkValidDirectoy(void)
+static void mkValidDirectoy(const char* dir)
 {
-    mkdir("./build", S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-    mkdir("./build/lib", S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-    mkdir("./build/obj", S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-    mkdir("./build/bin", S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+    String* cmdline = mkString("mkdir -p ");
+    appendStr(cmdline, dir);
+    size_t len = getLen(cmdline);
 
-    FILE* dummy = fopen("./build/.aedif", "wb");
+    appendStr(cmdline, "/lib");
+    fprintf(stdout, "%s\n", getStr(cmdline));
+    system(getStr(cmdline));
+
+    clearStringAfter(cmdline, (ssize_t)len);
+    appendStr(cmdline, "/obj");
+    fprintf(stdout, "%s\n", getStr(cmdline));
+    system(getStr(cmdline));
+
+    clearStringAfter(cmdline, (ssize_t)len);
+    appendStr(cmdline, "/bin");
+    fprintf(stdout, "%s\n", getStr(cmdline));
+    system(getStr(cmdline));
+
+    clearEntireString(cmdline);
+    appendStr(cmdline, dir);
+    appendStr(cmdline, "/.aedif");
+
+    FILE* dummy = fopen(getStr(cmdline), "wb");
 
     fwrite(AEDIF_VALID_DIR_STR, strlen(AEDIF_VALID_DIR_STR), 1, dummy);
 
     fclose(dummy);
+    freeString(cmdline);
 }

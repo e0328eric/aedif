@@ -296,6 +296,13 @@ void freeInnerProjectData(ProjectData* pdata)
     }
     free((void*)pdata->errors);
     pdata->errors = NULL;
+
+	for (i = 0; i < pdata->flagsSize; ++i)
+    {
+        freeString((String*)pdata->flags[i]);
+    }
+    free((void*)pdata->flags);
+    pdata->flags = NULL;
 }
 
 /****************************/

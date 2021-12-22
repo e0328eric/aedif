@@ -27,7 +27,6 @@ SRCS = [
     "./src/registered_funcs.c",
     "./src/predefined_vars.c",
     "./src/project_data.c",
-    "./src/commandline_parser.c",
 ]
 LIBS = [
     "-llua",

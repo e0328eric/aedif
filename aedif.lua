@@ -1,10 +1,10 @@
 LANGUAGE = "c"
 COMPILER = "gcc"
 STD = 11
-OPT_LEVEL = 3
+OPT_LEVEL = 0
 WARNINGS = { "all", "extra", "pedantic", "conversion" }
 ERRORS = { "return-type" }
--- FLAGS = { "-ggdb" }
+FLAGS = { "-ggdb" }
 
 Execute("make -C ./lib/lua-5.4.3/")
 Execute("mv ./lib/lua/src/liblua.a ./build/lib")
@@ -17,7 +17,6 @@ srcs = {
     "./src/registered_funcs.c",
     "./src/predefined_vars.c",
     "./src/project_data.c",
-    "./src/commandline_parser.c",
 }
 lib = "lua"
 lib_dir = "build/lib"

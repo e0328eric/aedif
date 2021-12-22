@@ -4,7 +4,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 
-#include "dyn_string.h"
+#include <dynString.h>
 
 // A lua function that is written in C at here
 // This function will register in the lua vm

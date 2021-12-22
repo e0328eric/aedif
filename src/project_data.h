@@ -3,7 +3,7 @@
 
 #include <lua.h>
 
-#include "dyn_string.h"
+#include <dynString.h>
 
 typedef enum LangType
 {

@@ -47,6 +47,8 @@ int main(int argc, char** argv)
         drapeauBool("help", false, "show the help message", "build");
     build_dir =
         drapeauStr("dir", "./build/", "sets the directory to build", "build");
+    bool* no_make_build_dir =
+        drapeauBool("nomake", false, "no to make build directories", "build");
 
     is_clean = drapeauSubcmd("clean", "clean buildings");
     bool* clean_help =
@@ -67,6 +69,8 @@ int main(int argc, char** argv)
     // if any other arguments are given, then sets build_dir = main_build
     const char** main_build =
         drapeauStr("dir", "./build/", "sets the directory to build", NULL);
+    bool* no_make_build_dir_main =
+        drapeauBool("nomake", false, "no to make build directories", NULL);
 
     drapeauParse(argc, argv);
 
@@ -76,6 +80,7 @@ int main(int argc, char** argv)
     {
         *is_build = true;
         build_dir = main_build;
+        no_make_build_dir = no_make_build_dir_main;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -94,6 +99,17 @@ int main(int argc, char** argv)
         drapeauClose();
         return 0;
     }
+
+    // check whether aedif.lua file exists
+    FILE* aedif_lua_file = fopen("aedif.lua", "r");
+    if (aedif_lua_file == NULL)
+    {
+        fprintf(stderr, AEDIF_ERROR_PREFIX
+                "aedif cannot find the bootstrap file (aka. aedif.lua)\n");
+        drapeauClose();
+        return 1;
+    }
+	fclose(aedif_lua_file);
 
     // If build or install subcommand is given, make ./build file
     if (*is_build || *is_install)
@@ -118,7 +134,7 @@ int main(int argc, char** argv)
                 return 1;
             }
         }
-        else
+        else if (!*no_make_build_dir)
         {
             mkValidDirectoy(*build_dir);
         }

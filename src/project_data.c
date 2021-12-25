@@ -1,10 +1,13 @@
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #define DYN_STRING_IMPL
-#include "project_data.h"
+#include <dynString.h>
+
+#include "err_print_syntax.h"
 #include "predefined_vars.h"
+#include "project_data.h"
 
 #define ASSERT(cond, msg)                                                      \
     if (!(cond))                                                               \
@@ -268,7 +271,7 @@ ProjectData getProjectData(const char** output, lua_State* L)
         ASSIGN_VAR("OPT_LEVEL", AEDIF_OPT_LEVEL);
         ASSIGN_VAR("WARNINGS", AEDIF_WARNINGS);
         ASSIGN_VAR("ERRORS", AEDIF_ERRORS);
-		ASSIGN_VAR("FLAGS", AEDIF_FLAGS);
+        ASSIGN_VAR("FLAGS", AEDIF_FLAGS);
         is_first_called = false;
     }
 
@@ -297,7 +300,7 @@ void freeInnerProjectData(ProjectData* pdata)
     free((void*)pdata->errors);
     pdata->errors = NULL;
 
-	for (i = 0; i < pdata->flagsSize; ++i)
+    for (i = 0; i < pdata->flagsSize; ++i)
     {
         freeString((String*)pdata->flags[i]);
     }
@@ -362,9 +365,8 @@ static StdType int2StdType(int val, LangType langType)
         case 23:
             return STD_TYPE_C_23;
         default:
-            fprintf(
-                stderr,
-                "[aedif warn]: Invalid std found. Setting C plain instead\n");
+            fprintf(stderr, AEDIF_WARN_PREFIX
+                    "Invalid std found. Setting C plain instead\n");
             return STD_TYPE_C_PLAIN;
         }
     case LANG_TYPE_CPP:
@@ -381,9 +383,8 @@ static StdType int2StdType(int val, LangType langType)
         case 23:
             return STD_TYPE_CPP_23;
         default:
-            fprintf(
-                stderr,
-                "[aedif warn]: Invalid std found. Setting C++ plain instead\n");
+            fprintf(stderr, AEDIF_WARN_PREFIX
+                    "Invalid std found. Setting C++ plain instead\n");
             return STD_TYPE_CPP_PLAIN;
         }
     default:

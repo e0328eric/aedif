@@ -57,6 +57,8 @@ int main(int argc, char** argv)
         drapeauStr("dir", "./build/", "sets the directory to clean", "clean");
     bool* clean_force =
         drapeauBool("force", false, "do not ask the deletion warning", "clean");
+    bool* read_lua_file = drapeauBool(
+        "readlua", false, "Read aedif.lua to run custom clean build", "clean");
 
     bool* is_install = drapeauSubcmd("install", "install the project");
     bool* install_help =
@@ -109,7 +111,7 @@ int main(int argc, char** argv)
         drapeauClose();
         return 1;
     }
-	fclose(aedif_lua_file);
+    fclose(aedif_lua_file);
 
     // If build or install subcommand is given, make ./build file
     if (*is_build || *is_install)
@@ -141,18 +143,21 @@ int main(int argc, char** argv)
     }
 
     // Read the aedif.lua script
-    lua_State* L = luaL_newstate();
-    predefineVars(L);
-    linkAedifModule(L);
-    luaL_openlibs(L);
-
-    if (!is_ok(L, luaL_dofile(L, "aedif.lua")))
+    if (!*is_clean || *read_lua_file)
     {
-        lua_close(L);
-        return 1;
-    }
+        lua_State* L = luaL_newstate();
+        predefineVars(L);
+        linkAedifModule(L);
+        luaL_openlibs(L);
 
-    lua_close(L);
+        if (!is_ok(L, luaL_dofile(L, "aedif.lua")))
+        {
+            lua_close(L);
+            return 1;
+        }
+
+        lua_close(L);
+    }
 
     if (*is_clean)
     {

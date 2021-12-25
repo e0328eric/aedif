@@ -125,16 +125,16 @@ void linkAedifModule(lua_State* L)
     lua_pushstring(L, getCurrentOs());
     lua_settable(L, -3);
 
-	lua_pushstring(L, "isclean");
-	if (*is_clean)
-	{
-		lua_pushboolean(L, true);
-	}
-	else
-	{
-		lua_pushboolean(L, false);
-	}
-	lua_settable(L, -3);
+    lua_pushstring(L, "isclean");
+    if (*is_clean)
+    {
+        lua_pushboolean(L, true);
+    }
+    else
+    {
+        lua_pushboolean(L, false);
+    }
+    lua_settable(L, -3);
 
     lua_pop(L, 1);
 }
@@ -366,18 +366,18 @@ static int lua_Compile(lua_State* L)
     switch (bdata.buildType)
     {
     case BUILD_TYPE_BINARY:
-	concatString(cmdline, pdata.compiler);
-	appendStr(cmdline, " -o ");
-	appendStr(cmdline, bdata.targetName);
-	appendChar(cmdline, ' ');
-	
+        concatString(cmdline, pdata.compiler);
+        appendStr(cmdline, " -o ");
+        appendStr(cmdline, bdata.targetName);
+        appendChar(cmdline, ' ');
+
         for (size_t i = 0; i < bdata.srcsSize; ++i)
         {
             concatString(cmdline, obj_container[i]);
             appendChar(cmdline, ' ');
         }
 
-	for (size_t i = 0; i < bdata.libDirsSize; ++i)
+        for (size_t i = 0; i < bdata.libDirsSize; ++i)
         {
             appendStr(cmdline, "-L");
             appendStr(cmdline, bdata.libDirs[i]);

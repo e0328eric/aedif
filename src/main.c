@@ -1,5 +1,5 @@
-#if !defined(__APPLE__)
-#error "Does not tested in the other operator systems"
+#if !defined(__APPLE__) && !defined(__linux__)
+#error "This tests only at macos and linux"
 #endif
 
 #include <dirent.h>
@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__linux__)
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>

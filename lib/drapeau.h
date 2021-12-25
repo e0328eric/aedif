@@ -451,10 +451,10 @@ const char* drapeauPrintErr(void)
         return NULL;
 
     case DRAPEAU_ERR_KIND_SUBCOMMAND_FIND:
-        return "Drapeau cannot find an appropriate subcommnads";
+        return "Cannot find an appropriate subcommnads";
 
     case DRAPEAU_ERR_KIND_FLAG_FIND:
-        return "Drapeau cannot find an appropriate flag";
+        return "Cannot find an appropriate flag";
 
     case DRAPEAU_ERR_KIND_INAVLID_NUMBER:
         return "Invalid number or overflowed number is given";

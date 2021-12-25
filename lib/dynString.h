@@ -24,6 +24,10 @@
 
 #include <ctype.h>
 
+#if defined(__APPLE__) || defined(__linux__)
+#include <sys/types.h>
+#endif
+
 #ifndef DYNSTRDEF
 #define DYNSTRDEF
 #endif // DYNSTRDEF

@@ -163,7 +163,7 @@ ProjectData getProjectData(const char** output, lua_State* L)
 
         for (size_t i = 0; i < pdata.warningsSize; ++i)
         {
-            lua_pushnumber(L, i + 1);
+            lua_pushinteger(L, (lua_Integer)(i + 1));
             lua_gettable(L, -2);
             if (lua_type(L, -1) != LUA_TSTRING)
             {
@@ -201,7 +201,7 @@ ProjectData getProjectData(const char** output, lua_State* L)
 
         for (size_t i = 0; i < pdata.errorsSize; ++i)
         {
-            lua_pushnumber(L, i + 1);
+            lua_pushinteger(L, (lua_Integer)(i + 1));
             lua_gettable(L, -2);
             if (lua_type(L, -1) != LUA_TSTRING)
             {
@@ -219,7 +219,7 @@ ProjectData getProjectData(const char** output, lua_State* L)
     }
     lua_pop(L, 1);
 
-	/***************/
+    /***************/
     /* Parse Flags */
     /***************/
     lua_output_type = lua_getglobal(L, "FLAGS");
@@ -238,7 +238,7 @@ ProjectData getProjectData(const char** output, lua_State* L)
 
         for (size_t i = 0; i < pdata.flagsSize; ++i)
         {
-            lua_pushnumber(L, i + 1);
+            lua_pushinteger(L, (lua_Integer)(i + 1));
             lua_gettable(L, -2);
             if (lua_type(L, -1) != LUA_TSTRING)
             {

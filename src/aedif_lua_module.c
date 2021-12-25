@@ -212,7 +212,7 @@ static int lua_Compile(lua_State* L)
 
         for (size_t i = 0; i < bdata.srcsSize; ++i)
         {
-            lua_pushnumber(L, i + 1);
+            lua_pushinteger(L, (lua_Integer)(i + 1));
             lua_gettable(L, 2);
             bdata.srcs[i] = lua_tostring(L, -1);
             lua_pop(L, 1);
@@ -366,8 +366,18 @@ static int lua_Compile(lua_State* L)
     switch (bdata.buildType)
     {
     case BUILD_TYPE_BINARY:
-        concatString(cmdline, premire);
-        for (size_t i = 0; i < bdata.libDirsSize; ++i)
+	concatString(cmdline, pdata.compiler);
+	appendStr(cmdline, " -o ");
+	appendStr(cmdline, bdata.targetName);
+	appendChar(cmdline, ' ');
+	
+        for (size_t i = 0; i < bdata.srcsSize; ++i)
+        {
+            concatString(cmdline, obj_container[i]);
+            appendChar(cmdline, ' ');
+        }
+
+	for (size_t i = 0; i < bdata.libDirsSize; ++i)
         {
             appendStr(cmdline, "-L");
             appendStr(cmdline, bdata.libDirs[i]);
@@ -379,13 +389,6 @@ static int lua_Compile(lua_State* L)
             appendStr(cmdline, bdata.libs[i]);
             appendChar(cmdline, ' ');
         }
-        for (size_t i = 0; i < bdata.srcsSize; ++i)
-        {
-            concatString(cmdline, obj_container[i]);
-            appendChar(cmdline, ' ');
-        }
-        appendStr(cmdline, "-o ");
-        appendStr(cmdline, bdata.targetName);
 
         printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
         system(getStr(cmdline));
@@ -524,7 +527,7 @@ static bool initMember(lua_State* L, int num, const char*** member,
 
         for (size_t i = 0; i < *size; ++i)
         {
-            lua_pushnumber(L, i + 1);
+            lua_pushinteger(L, (lua_Integer)(i + 1));
             lua_gettable(L, num);
             (*member)[i] = lua_tostring(L, -1);
             lua_pop(L, 1);

@@ -10,7 +10,7 @@ if aedif.isclean then
    aedif.execute("make clean -C ./lib/lua-5.4.3/")
 else
    aedif.execute("make -C ./lib/lua-5.4.3/")
-   aedif.execute("mv ./lib/lua/src/liblua.a ./build/lib")
+   aedif.execute("mv ./lib/lua-5.4.3/src/liblua.a ./build/lib")
 
    target = "aedif"
    srcs = {
@@ -21,7 +21,16 @@ else
 	  "./src/predefined_vars.c",
 	  "./src/project_data.c",
    }
+   if aedif.ostype == "macos" then
    lib = "lua"
+   else if aedif.ostype == "linux" then
+   lib = {
+       "lua",
+       "m",
+       "dl",
+   }
+   end
+   end
    lib_dir = "build/lib"
    includes = {
 	  "lib/lua-5.4.3/src",

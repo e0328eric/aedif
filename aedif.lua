@@ -22,14 +22,13 @@ else
 	  "./src/project_data.c",
    }
    if aedif.ostype == "macos" then
-   lib = "lua"
-   else if aedif.ostype == "linux" then
-   lib = {
-       "lua",
-       "m",
-       "dl",
-   }
-   end
+       lib = "lua"
+   elseif aedif.ostype == "linux" then
+       lib = {
+           "lua",
+           "m",
+           "dl",
+       }
    end
    lib_dir = "build/lib"
    includes = {

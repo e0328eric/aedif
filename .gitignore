@@ -1,2 +1,4 @@
 /build
 /lib/lua-5.4.3/src/*.o
+/lib/lua-5.4.3/src/lua
+/lib/lua-5.4.3/src/luac

@@ -1,4 +1,4 @@
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(__linux__)
 #error "build script is tested only at macos"
 #endif
 
@@ -78,6 +78,15 @@ int main(int argc, char** argv)
     bool* help_msg = drapeauBool("help", false, "help message", NULL);
 
     drapeauParse(argc, argv);
+
+    const char* err;
+    if ((err = drapeauPrintErr()) != NULL)
+    {
+        fprintf(stderr, "%s\n", err);
+        drapeauClose();
+        return 1;
+    }
+
     drapeauClose();
 
     if (*help_msg)

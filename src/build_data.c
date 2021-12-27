@@ -218,7 +218,7 @@ static void raiseTypeMismatchedErr(lua_State* L, const char** err_msg,
              "Type mismatched at line %d. expected %s, got '%s'.",
              line_number, msg, got_typename);
 
-    char* tmp = malloc(strlen(err_buffer));
+    char* tmp = malloc(sizeof(err_buffer));
     memcpy(tmp, err_buffer, sizeof(err_buffer));
     *err_msg = tmp;
 }
@@ -244,7 +244,7 @@ static void raiseInvalidNumberErr(lua_State* L, const char** err_msg,
              "Numbers '%s' are expected at line %d. Got %d instead.",
              expected, line_number, got);
 
-    char* tmp = malloc(strlen(err_buffer));
+    char* tmp = malloc(sizeof(err_buffer));
     memcpy(tmp, err_buffer, sizeof(err_buffer));
     *err_msg = tmp;
 }

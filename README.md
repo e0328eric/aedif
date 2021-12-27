@@ -8,18 +8,20 @@ Since this is the toy project, it is not recommended to use in real production.
 It can be built in both python script and aedif itself. However, in this moment, it is checked to run only at macos and linux (especially, Arch Linux).
 Later, it is planed to support in Windows.
 
-## Using a python script
+## Using a C script
 
 You need a `gcc` to compile it. But other compilers can be used, for example, `clang`.
 Just type this:
 
 ```console
+$ cc cb.c -o cb
 $ ./cb b
 ```
 
 or if you install this, run
 
 ```console
+$ cc cb.c -o cb
 $ ./cb i
 ```
 

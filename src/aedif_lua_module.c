@@ -7,12 +7,16 @@
 #include <dynString.h>
 
 #include "aedif_lua_module.h"
+#include "build_data.h"
 #include "conversion.h"
 #include "err_print_syntax.h"
-#include "lua_debug.h"
+#include "lua_utils.h"
 #include "predefined_vars.h"
 #include "project_data.h"
 
+/*****************/
+/* Define Macros */
+/*****************/
 #define ASSERT(cond, msg)                                                      \
     if (!(cond))                                                               \
     {                                                                          \
@@ -26,33 +30,7 @@
 
 #define CHECK_IS_WHITESPACE(_str) ((*_str) == ' ' || (*_str) == '\t')
 
-#define RAISE_ERR(_fmt_msg, ...)                                               \
-    do                                                                         \
-    {                                                                          \
-        freeInnerProjectData(&pdata);                                          \
-        freeBuildData(&bdata);                                                 \
-        if ((line_number = getLineNumber(L)) < 0)                              \
-        {                                                                      \
-            ASSERT(false, AEDIF_INTERNAL_ERR_PREFIX                            \
-                   "cannot get the line number from the 'getLineNumber' "      \
-                   "function.");                                               \
-            return 0;                                                          \
-        }                                                                      \
-        got_typename = luaL_typename(L, 1);                                    \
-        snprintf(err_buffer, sizeof(err_buffer), AEDIF_ERROR_PREFIX _fmt_msg,  \
-                 __VA_ARGS__);                                                 \
-        lua_pushstring(L, err_buffer);                                         \
-        lua_error(L);                                                          \
-        return 0;                                                              \
-    } while (false)
-
-#define RAISE_TYPE_MISMATCHED_ERR(_type_str)                                   \
-    RAISE_ERR("Type mismatched at line %d. expected " _type_str ", got '%s'.", \
-              line_number, got_typename)
-
-#define RAISE_GIVEN_NUMBER_INVALID_ERR(_expc_nums, _got_num)                   \
-    RAISE_ERR("Numbers '%s' are expected at line %d. Got %d instead.",         \
-              _expc_nums, line_number, _got_num)
+////////////////////////////////////////////////////////////////////////////////
 
 // Since there is no way to input the build_dir inside lua_Compile,
 // we made a global variable.
@@ -61,39 +39,13 @@ const char** build_dir = NULL;
 // Same manner for is_clean
 extern bool* is_clean;
 
-/***********************************/
-/* Structure and Enum  Definitions */
-/***********************************/
-typedef enum BuildType
-{
-    BUILD_TYPE_BINARY = 0,
-    BUILD_TYPE_STATIC,
-    BUILD_TYPE_DYNAMIC,
-} BuildType;
-
-typedef struct BuildData
-{
-    const char* targetName;
-    const char** srcs;
-    size_t srcsSize;
-    const char** libs;
-    size_t libsSize;
-    const char** libDirs;
-    size_t libDirsSize;
-    const char** includes;
-    size_t includesSize;
-    BuildType buildType;
-} BuildData;
-
 /**********************/
 /* Function Signature */
 /**********************/
 static int lua_RestoreSettings(lua_State* L);
 static int lua_Execute(lua_State* L);
 static int lua_Compile(lua_State* L);
-static void freeBuildData(BuildData* bdata);
-static bool initMember(lua_State* L, int num, const char*** member,
-                       size_t* size);
+
 static const char* stdType2str(StdType st);
 static const char* optLevel2str(OptLevel ol);
 static const String* getObjName(const char* src_name, const char* target_name);
@@ -167,11 +119,7 @@ static int lua_Compile(lua_State* L)
     // Import basic compiling settings
     char err_buffer[150];
     const char* pb_err_msg;
-    const char* got_typename;
-    int line_number;
-
-    BuildData bdata;
-    memset(&bdata, 0, sizeof(BuildData));
+    const char* bd_err_msg;
 
     ProjectData pdata = getProjectData(&pb_err_msg, L);
     if (pb_err_msg != NULL)
@@ -184,111 +132,16 @@ static int lua_Compile(lua_State* L)
         return 0;
     }
 
-    /*******************/
-    /* Get target name */
-    /*******************/
-    if (lua_type(L, 1) != LUA_TSTRING)
+    BuildData bdata = newBuildData(L, &bd_err_msg);
+    if (bd_err_msg != NULL)
     {
-        RAISE_TYPE_MISMATCHED_ERR("'string'");
-    }
-    bdata.targetName = lua_tostring(L, 1);
-
-    /************/
-    /* Get srcs */
-    /************/
-    switch (lua_type(L, 2))
-    {
-    case LUA_TSTRING:
-        bdata.srcs = malloc(sizeof(const char*));
-        *bdata.srcs = lua_tostring(L, 2);
-        bdata.srcsSize = 1;
-        break;
-
-    case LUA_TTABLE:
-        lua_len(L, 2);
-        bdata.srcsSize = (size_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        bdata.srcs = malloc(sizeof(const char*) * bdata.srcsSize);
-
-        for (size_t i = 0; i < bdata.srcsSize; ++i)
-        {
-            lua_pushinteger(L, (lua_Integer)(i + 1));
-            lua_gettable(L, 2);
-            bdata.srcs[i] = lua_tostring(L, -1);
-            lua_pop(L, 1);
-        }
-        break;
-
-    default:
-        RAISE_TYPE_MISMATCHED_ERR("'string' or 'table'");
-        break;
-    }
-
-    /******************************/
-    /* Initializing other members */
-    /******************************/
-    if (!initMember(L, 3, &bdata.libs, &bdata.libsSize))
-    {
-        RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");
-    }
-    if (!initMember(L, 4, &bdata.libDirs, &bdata.libDirsSize))
-    {
-        RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");
-    }
-    if (!initMember(L, 5, &bdata.includes, &bdata.includesSize))
-    {
-        RAISE_TYPE_MISMATCHED_ERR("'nil', 'string' or 'table");
-    }
-
-    /*********************/
-    /* Get Building type */
-    /*********************/
-    switch (lua_type(L, 6))
-    {
-    case LUA_TNIL:
-        bdata.buildType = BUILD_TYPE_BINARY;
-        break;
-
-    case LUA_TNUMBER:
-        bdata.buildType = (BuildType)lua_tonumber(L, 6);
-        if (bdata.buildType < 0 || bdata.buildType > 3)
-        {
-            RAISE_GIVEN_NUMBER_INVALID_ERR("0, 1, 2 or 3", bdata.buildType);
-        }
-        break;
-
-    case LUA_TSTRING: {
-        const char* build_type_str = lua_tostring(L, 6);
-        if (strncmp(build_type_str, "static\0", 7) == 0 ||
-            strncmp(build_type_str, "s\0", 2) == 0)
-        {
-            bdata.buildType = BUILD_TYPE_STATIC;
-        }
-        else if (strncmp(build_type_str, "dynamic\0", 8) == 0 ||
-                 strncmp(build_type_str, "d\0", 2) == 0)
-        {
-            bdata.buildType = BUILD_TYPE_DYNAMIC;
-        }
-        else if (strncmp(build_type_str, "binary\0", 7) == 0 ||
-                 strncmp(build_type_str, "bin\0", 4) == 0 ||
-                 strncmp(build_type_str, "b\0", 2) == 0)
-        {
-            bdata.buildType = BUILD_TYPE_BINARY;
-        }
-        else
-        {
-            fprintf(stderr, AEDIF_WARN_PREFIX
-                    "Invalid build type "
-                    "string. Compiling it with the type 'binary', "
-                    "instead.\n" AEDIF_NOTE_PREFIX "The possible build types "
-                    "are 'static', 'dynamic' or 'binary'.\n");
-        }
-        break;
-    }
-
-    default:
-        RAISE_TYPE_MISMATCHED_ERR("'nil', 'number' or 'string'");
-        break;
+        snprintf(err_buffer, sizeof(err_buffer), AEDIF_ERROR_PREFIX "%s\n",
+                 bd_err_msg);
+        freeInnerProjectData(&pdata);
+        freeInnerBuildData(&bdata);
+        lua_pushstring(L, err_buffer);
+        lua_error(L);
+        return 0;
     }
 
     /******************************/
@@ -484,7 +337,7 @@ static int lua_Compile(lua_State* L)
         free(obj_container);
         freeString(premire);
         freeString(cmdline);
-        freeBuildData(&bdata);
+        freeInnerBuildData(&bdata);
         freeInnerProjectData(&pdata);
         ASSERT(false, AEDIF_INTERNAL_ERR_PREFIX "Unreatchable (lua_Compile)");
         return 0;
@@ -500,54 +353,9 @@ static int lua_Compile(lua_State* L)
     free(obj_container);
     freeString(premire);
     freeString(cmdline);
-    freeBuildData(&bdata);
+    freeInnerBuildData(&bdata);
     freeInnerProjectData(&pdata);
     return 0;
-}
-
-static bool initMember(lua_State* L, int num, const char*** member,
-                       size_t* size)
-{
-    switch (lua_type(L, num))
-    {
-    case LUA_TNIL:
-        break;
-
-    case LUA_TSTRING:
-        *member = malloc(sizeof(const char*));
-        **member = lua_tostring(L, num);
-        *size = 1;
-        break;
-
-    case LUA_TTABLE:
-        lua_len(L, num);
-        *size = (size_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        *member = malloc(sizeof(const char*) * *size);
-
-        for (size_t i = 0; i < *size; ++i)
-        {
-            lua_pushinteger(L, (lua_Integer)(i + 1));
-            lua_gettable(L, num);
-            (*member)[i] = lua_tostring(L, -1);
-            lua_pop(L, 1);
-        }
-        break;
-
-    default:
-        return false;
-        break;
-    }
-
-    return true;
-}
-
-static void freeBuildData(BuildData* bdata)
-{
-    free(bdata->srcs);
-    free(bdata->libs);
-    free(bdata->libDirs);
-    free(bdata->includes);
 }
 
 static const char* stdType2str(StdType st)

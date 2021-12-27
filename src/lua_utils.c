@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "lua_debug.h"
+#include "lua_utils.h"
 
 int getLineNumber(lua_State* L)
 {

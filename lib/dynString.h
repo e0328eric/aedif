@@ -54,7 +54,10 @@ DYNSTRDEF int cmpStringStr(const String* pString, const char* str);
 DYNSTRDEF int cmpStrString(const char* str, const String* pString);
 
 DYNSTRDEF ssize_t findChar(const String* pString, char chr);
+DYNSTRDEF ssize_t findCharNth(const String* pString, char chr, size_t nth);
 DYNSTRDEF ssize_t findCharReverse(const String* pString, char chr);
+DYNSTRDEF ssize_t findCharReverseNth(const String* pString, char chr,
+                                     size_t nth);
 
 DYNSTRDEF void clearStringAfter(String* pString, ssize_t pos);
 DYNSTRDEF void clearStringBefore(String* pString, ssize_t pos);
@@ -178,7 +181,7 @@ void appendCharBack(String* pString, char chr)
         pString->inner = realloc(pString->inner, pString->capacity);
     }
 
-	memmove(pString->inner + 1, pString->inner, ++pString->len);
+    memmove(pString->inner + 1, pString->inner, ++pString->len);
     pString->inner[0] = chr;
 }
 
@@ -190,7 +193,7 @@ void appendStrBack(String* pString, const char* str)
         pString->capacity = (pString->capacity + strLen + 1) << 1;
         pString->inner = realloc(pString->inner, pString->capacity);
     }
-	memmove(pString->inner + strLen, pString->inner, pString->len);
+    memmove(pString->inner + strLen, pString->inner, pString->len);
     memcpy(pString->inner, str, strLen);
     pString->inner[pString->len + strLen] = '\0';
     pString->len += strLen;
@@ -203,7 +206,7 @@ void appendNStrBack(String* pString, const char* str, size_t strLen)
         pString->capacity = (pString->capacity + strLen + 1) << 1;
         pString->inner = realloc(pString->inner, pString->capacity);
     }
-	memmove(pString->inner + strLen, pString->inner, pString->len);
+    memmove(pString->inner + strLen, pString->inner, pString->len);
     memcpy(pString->inner, str, strLen);
     pString->inner[pString->len + strLen] = '\0';
     pString->len += strLen;
@@ -259,24 +262,42 @@ int cmpStrString(const char* str, const String* pString)
 
 ssize_t findChar(const String* pString, char chr)
 {
+    return findCharNth(pString, chr, 1);
+}
+
+ssize_t findCharNth(const String* pString, char chr, size_t nth)
+{
     if (!pString)
         return -1;
 
-    char* ptr = strchr(pString->inner, chr);
-    if (!ptr)
-        return -1;
+    char* ptr = pString->inner - 1;
+    while (nth--)
+    {
+        ptr = strchr(++ptr, chr);
+        if (!ptr)
+            return -1;
+    }
 
     return ptr - pString->inner;
 }
 
 ssize_t findCharReverse(const String* pString, char chr)
 {
+    return findCharReverseNth(pString, chr, 1);
+}
+
+ssize_t findCharReverseNth(const String* pString, char chr, size_t nth)
+{
     if (!pString)
         return -1;
 
-    char* ptr = strrchr(pString->inner, chr);
-    if (!ptr)
-        return -1;
+    char* ptr = pString->inner - 1;
+    while (nth--)
+    {
+        ptr = strrchr(++ptr, chr);
+        if (!ptr)
+            return -1;
+    }
 
     return ptr - pString->inner;
 }

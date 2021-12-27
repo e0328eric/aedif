@@ -20,7 +20,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Drapeau Command line parser library
+// Drapeau Command line parser library v0.1.0
 //
 // It is a command line parser inspired by go's flag module and tsodings flag.h
 // ( tsodings flag.h source code : https://github.com/tsoding/flag.h )
@@ -58,18 +58,29 @@ DRAPEAUDEF void drapeauClose(void);
 DRAPEAUDEF const char* drapeauPrintErr(void);
 DRAPEAUDEF void drapeauPrintHelp(FILE* fp);
 
+// clang-format off
+#define DRAPEAU_TYPES(T)                                                       \
+    T(Bool, bool, boolean, FLAG_TYPE_BOOL)                                     \
+    T(I8, int8_t, i8, FLAG_TYPE_I8)                                            \
+    T(I16, int16_t, i16, FLAG_TYPE_I16)                                        \
+    T(I32, int32_t, i32, FLAG_TYPE_I32)                                        \
+    T(I64, int64_t, i64, FLAG_TYPE_I64)                                        \
+    T(U8, uint8_t, u8, FLAG_TYPE_U8)                                           \
+    T(U16, uint16_t, u16, FLAG_TYPE_U16)                                       \
+    T(U32, uint32_t, u32, FLAG_TYPE_U32)                                       \
+    T(U64, uint64_t, u64, FLAG_TYPE_U64)                                       \
+    T(Str, const char*, str, FLAG_TYPE_STRING)
+// clang-format on
+
 DRAPEAUDEF bool* drapeauSubcmd(const char* restrict subcmd_name,
                                const char* restrict desc);
-DRAPEAUDEF bool* drapeauBool(const char* restrict flag_name, bool dfault,
-                             const char* restrict desc,
-                             const char* restrict subcmd);
-DRAPEAUDEF uint64_t* drapeauU64(const char* restrict flag_name, uint64_t dfault,
-                                const char* restrict desc,
-                                const char* restrict subcmd);
-DRAPEAUDEF const char** drapeauStr(const char* restrict flag_name,
-                                   const char* restrict dfault,
-                                   const char* restrict desc,
-                                   const char* restrict subcmd);
+
+#define T(_name, _type, _foo1, _foo2)                                          \
+    DRAPEAUDEF _type* drapeau##_name(const char* restrict flag_name,           \
+                                     _type dfault, const char* restrict desc,  \
+                                     const char* restrict subcmd);
+DRAPEAU_TYPES(T)
+#undef T
 
 // #ifdef __cplusplus
 // }
@@ -92,12 +103,26 @@ typedef enum
 {
     FLAG_TYPE_NIL = 0,
     FLAG_TYPE_BOOL,
+    FLAG_TYPE_I8,
+    FLAG_TYPE_I16,
+    FLAG_TYPE_I32,
+    FLAG_TYPE_I64,
+    FLAG_TYPE_U8,
+    FLAG_TYPE_U16,
+    FLAG_TYPE_U32,
     FLAG_TYPE_U64,
     FLAG_TYPE_STRING,
 } FlagType;
 
 typedef union {
     bool boolean;
+    int8_t i8;
+    int16_t i16;
+    int32_t i32;
+    int64_t i64;
+    uint8_t u8;
+    uint16_t u16;
+    uint32_t u32;
     uint64_t u64;
     const char* str;
 } FlagKind;
@@ -384,63 +409,30 @@ bool* drapeauSubcmd(const char* restrict subcmd_name, const char* restrict desc)
     return &subcmd->is_activate;
 }
 
-bool* drapeauBool(const char* restrict flag_name, bool dfault,
-                  const char* restrict desc, const char* restrict subcmd)
-{
-    Flag* flag = drapeauGetFlag(subcmd);
-    if (flag == NULL)
-    {
-        drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;
-        return NULL;
+#define T(_name, _type, _arg, _flag_type)                                      \
+    _type* drapeau##_name(const char* restrict flag_name, _type dfault,        \
+                          const char* restrict desc,                           \
+                          const char* restrict subcmd)                         \
+    {                                                                          \
+        Flag* flag = drapeauGetFlag(subcmd);                                   \
+        if (flag == NULL)                                                      \
+        {                                                                      \
+            drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;                    \
+            return NULL;                                                       \
+        }                                                                      \
+                                                                               \
+        flag->name = flag_name;                                                \
+        flag->type = _flag_type;                                               \
+        flag->kind._arg = dfault;                                              \
+        flag->dfault._arg = dfault;                                            \
+        flag->desc = desc;                                                     \
+                                                                               \
+        return &flag->kind._arg;                                               \
     }
 
-    flag->name = flag_name;
-    flag->type = FLAG_TYPE_BOOL;
-    flag->kind.boolean = dfault;
-    flag->dfault.boolean = dfault;
-    flag->desc = desc;
-
-    return &flag->kind.boolean;
-}
-
-uint64_t* drapeauU64(const char* restrict flag_name, uint64_t dfault,
-                     const char* restrict desc, const char* restrict subcmd)
-{
-    Flag* flag = drapeauGetFlag(subcmd);
-    if (flag == NULL)
-    {
-        drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;
-        return NULL;
-    }
-
-    flag->name = flag_name;
-    flag->type = FLAG_TYPE_U64;
-    flag->kind.u64 = dfault;
-    flag->dfault.u64 = dfault;
-    flag->desc = desc;
-
-    return &flag->kind.u64;
-}
-
-const char** drapeauStr(const char* restrict flag_name,
-                        const char* restrict dfault, const char* restrict desc,
-                        const char* restrict subcmd)
-{
-    Flag* flag = drapeauGetFlag(subcmd);
-    if (flag == NULL)
-    {
-        drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;
-        return NULL;
-    }
-
-    flag->name = flag_name;
-    flag->type = FLAG_TYPE_STRING;
-    flag->kind.str = dfault;
-    flag->dfault.str = dfault;
-    flag->desc = desc;
-
-    return &flag->kind.str;
-}
+// implementation of drapeauBool kinds
+DRAPEAU_TYPES(T)
+#undef T
 
 // TODO: implement better and clean error printing message
 const char* drapeauPrintErr(void)
@@ -510,10 +502,10 @@ static bool findSubcmdPosition(size_t* output, const char* subcmd_name)
     size_t hash = drapeauHash(subcmd_name);
     HashBox* hashbox = &hash_map[hash];
 
-	if (hashbox->name == NULL)
-	{
-		return false;
-	}
+    if (hashbox->name == NULL)
+    {
+        return false;
+    }
 
     while (hashbox != NULL && strcmp(subcmd_name, hashbox->name) != 0)
     {

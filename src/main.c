@@ -25,7 +25,7 @@
 
 #include "aedif_lua_module.h"
 #include "err_print_syntax.h"
-#include "lua_debug.h"
+#include "lua_utils.h"
 #include "predefined_vars.h"
 
 #define AEDIF_VALID_DIR_STR "The  \xab aedif\xbc building \t  \xcd tool\xde"

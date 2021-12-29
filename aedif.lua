@@ -4,7 +4,6 @@ STD = 11
 OPT_LEVEL = 0
 WARNINGS = { "all", "extra", "pedantic", "conversion" }
 ERRORS = { "return-type" }
-FLAGS = { "-ggdb" }
 
 if aedif.isclean then
     aedif.execute("make clean -C ./lib/lua-5.4.3/")

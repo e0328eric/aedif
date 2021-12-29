@@ -46,8 +46,12 @@ typedef struct ProjectData
     size_t warningsSize;
     const String** errors;
     size_t errorsSize;
-	const String** flags;
-	size_t flagsSize;
+    const String** compileFlags;
+    size_t compileFlagsSize;
+    const String** linkFlags;
+    size_t linkFlagsSize;
+    const String** flags;
+    size_t flagsSize;
 } ProjectData;
 
 ProjectData getProjectData(const char** output, lua_State* L);

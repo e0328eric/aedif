@@ -25,6 +25,16 @@
 /****************/
 /* Declarations */
 /****************/
+typedef enum ParseTableErrkind
+{
+    PARSE_TABLE_ERR_KIND_OK = 0,
+    PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED,
+    PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED,
+} ParseTableErrkind;
+
+static ParseTableErrkind parseTableData(lua_State* L, const char* var_name,
+                                        const String*** data, size_t* data_len);
+
 static bool isCppName(const char* name);
 static bool isCName(const char* name);
 static StdType int2StdType(int val, LangType language);
@@ -150,114 +160,89 @@ ProjectData getProjectData(const char** output, lua_State* L)
     /******************/
     /* Parse Warnings */
     /******************/
-    lua_output_type = lua_getglobal(L, "WARNINGS");
-
-    switch (lua_output_type)
+    switch (parseTableData(L, "WARNINGS", &pdata.warnings, &pdata.warningsSize))
     {
-    case LUA_TNIL:
+    case PARSE_TABLE_ERR_KIND_OK:
         break;
 
-    case LUA_TTABLE: {
-        lua_len(L, -1);
-        pdata.warningsSize = (size_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-
-        pdata.warnings = malloc(sizeof(String*) * pdata.warningsSize);
-
-        for (size_t i = 0; i < pdata.warningsSize; ++i)
-        {
-            lua_pushinteger(L, (lua_Integer)(i + 1));
-            lua_gettable(L, -2);
-            if (lua_type(L, -1) != LUA_TSTRING)
-            {
-                INIT_FAILED(
-                    "The type of elements of WARNINGS must be 'string'");
-            }
-            pdata.warnings[i] = mkString(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-
+    case PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of elements of WARNINGS must be 'string'");
         break;
-    }
 
-    default:
+    case PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED:
         INIT_FAILED("The type of WARNINGS is neither 'nil' nor 'table'");
+        break;
     }
-    lua_pop(L, 1);
 
     /****************/
     /* Parse Errors */
     /****************/
-    lua_output_type = lua_getglobal(L, "ERRORS");
-
-    switch (lua_output_type)
+    switch (parseTableData(L, "ERRORS", &pdata.errors, &pdata.errorsSize))
     {
-    case LUA_TNIL:
+    case PARSE_TABLE_ERR_KIND_OK:
         break;
 
-    case LUA_TTABLE: {
-        lua_len(L, -1);
-        pdata.errorsSize = (size_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-
-        pdata.errors = malloc(sizeof(String*) * pdata.errorsSize);
-
-        for (size_t i = 0; i < pdata.errorsSize; ++i)
-        {
-            lua_pushinteger(L, (lua_Integer)(i + 1));
-            lua_gettable(L, -2);
-            if (lua_type(L, -1) != LUA_TSTRING)
-            {
-                INIT_FAILED("The type of elements of ERRORS must be 'string'");
-            }
-            pdata.errors[i] = mkString(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-
+    case PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of elements of ERRORS must be 'string'");
         break;
-    }
 
-    default:
+    case PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED:
         INIT_FAILED("The type of ERRORS is neither 'nil' nor 'table'");
+        break;
     }
-    lua_pop(L, 1);
+
+    /***********************/
+    /* Parse Compile Flags */
+    /***********************/
+    switch (parseTableData(L, "COMPILE_FLAGS", &pdata.compileFlags,
+                           &pdata.compileFlagsSize))
+    {
+    case PARSE_TABLE_ERR_KIND_OK:
+        break;
+
+    case PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of elements of COMPILE_FLAGS must be 'string'");
+        break;
+
+    case PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of COMPILE_FLAGS is neither 'nil' nor 'table'");
+        break;
+    }
+
+    /********************/
+    /* Parse Link Flags */
+    /********************/
+    switch (
+        parseTableData(L, "LINK_FLAGS", &pdata.linkFlags, &pdata.linkFlagsSize))
+    {
+    case PARSE_TABLE_ERR_KIND_OK:
+        break;
+
+    case PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of elements of LINK_FLAGS must be 'string'");
+        break;
+
+    case PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of LINK_FLAGS is neither 'nil' nor 'table'");
+        break;
+    }
 
     /***************/
     /* Parse Flags */
     /***************/
-    lua_output_type = lua_getglobal(L, "FLAGS");
-
-    switch (lua_output_type)
+    switch (parseTableData(L, "FLAGS", &pdata.flags, &pdata.flagsSize))
     {
-    case LUA_TNIL:
+    case PARSE_TABLE_ERR_KIND_OK:
         break;
 
-    case LUA_TTABLE: {
-        lua_len(L, -1);
-        pdata.flagsSize = (size_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-
-        pdata.flags = malloc(sizeof(String*) * pdata.flagsSize);
-
-        for (size_t i = 0; i < pdata.flagsSize; ++i)
-        {
-            lua_pushinteger(L, (lua_Integer)(i + 1));
-            lua_gettable(L, -2);
-            if (lua_type(L, -1) != LUA_TSTRING)
-            {
-                INIT_FAILED("The type of elements of FLAGS must be 'string'");
-            }
-            pdata.flags[i] = mkString(lua_tostring(L, -1));
-            lua_pop(L, 1);
-        }
-
+    case PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED:
+        INIT_FAILED("The type of elements of FLAGS must be 'string'");
         break;
-    }
 
-    default:
+    case PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED:
         INIT_FAILED("The type of FLAGS is neither 'nil' nor 'table'");
+        break;
     }
-    lua_pop(L, 1);
 
     // Set output to NULL so that we can check whether constructing ProjectData
     // is successed
@@ -271,11 +256,53 @@ ProjectData getProjectData(const char** output, lua_State* L)
         ASSIGN_VAR("OPT_LEVEL", AEDIF_OPT_LEVEL);
         ASSIGN_VAR("WARNINGS", AEDIF_WARNINGS);
         ASSIGN_VAR("ERRORS", AEDIF_ERRORS);
+        ASSIGN_VAR("COMPILE_FLAGS", AEDIF_COMPILE_FLAGS);
+        ASSIGN_VAR("LINK_FLAGS", AEDIF_LINK_FLAGS);
         ASSIGN_VAR("FLAGS", AEDIF_FLAGS);
         is_first_called = false;
     }
 
     return pdata;
+}
+
+static ParseTableErrkind parseTableData(lua_State* L, const char* var_name,
+                                        const String*** data, size_t* data_len)
+{
+    int lua_output_type = lua_getglobal(L, var_name);
+
+    switch (lua_output_type)
+    {
+    case LUA_TNIL:
+        break;
+
+    case LUA_TTABLE: {
+        lua_len(L, -1);
+        *data_len = (size_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+
+        *data = malloc(sizeof(String*) * *data_len);
+
+        for (size_t i = 0; i < *data_len; ++i)
+        {
+            lua_pushinteger(L, (lua_Integer)(i + 1));
+            lua_gettable(L, -2);
+            if (lua_type(L, -1) != LUA_TSTRING)
+            {
+                return PARSE_TABLE_ERR_KIND_INNER_TYPE_MISMATCHED;
+            }
+            (*data)[i] = mkString(lua_tostring(L, -1));
+            lua_pop(L, 1);
+        }
+
+        break;
+    }
+
+    default:
+        return PARSE_TABLE_ERR_KIND_OUTER_TYPE_MISMATCHED;
+    }
+    lua_pop(L, 1);
+
+    return PARSE_TABLE_ERR_KIND_OK;
 }
 
 #undef INIT_FAILED
@@ -299,6 +326,20 @@ void freeInnerProjectData(ProjectData* pdata)
     }
     free((void*)pdata->errors);
     pdata->errors = NULL;
+
+    for (i = 0; i < pdata->compileFlagsSize; ++i)
+    {
+        freeString((String*)pdata->compileFlags[i]);
+    }
+    free((void*)pdata->compileFlags);
+    pdata->compileFlags = NULL;
+
+    for (i = 0; i < pdata->linkFlagsSize; ++i)
+    {
+        freeString((String*)pdata->linkFlags[i]);
+    }
+    free((void*)pdata->linkFlags);
+    pdata->linkFlags = NULL;
 
     for (i = 0; i < pdata->flagsSize; ++i)
     {

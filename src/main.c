@@ -31,8 +31,8 @@
 #define AEDIF_VALID_DIR_STR "The  \xab aedif\xbc building \t  \xcd tool\xde"
 
 // Global variables
-bool* is_clean;
-extern const char** build_dir;
+bool* IS_CLEAN;
+extern const char** BUILD_DIR;
 
 static bool checkIsValidDirectory(const char* dir);
 static void mkValidDirectoy(const char* dir);
@@ -45,12 +45,14 @@ int main(int argc, char** argv)
     bool* is_build = drapeauSubcmd("build", "build the project");
     bool* build_help =
         drapeauBool("help", false, "show the help message", "build");
-    build_dir =
+    // A global variable
+    BUILD_DIR =
         drapeauStr("dir", "./build/", "sets the directory to build", "build");
-    bool* no_make_build_dir =
+    bool* no_make_BUILD_DIR =
         drapeauBool("nomake", false, "no to make build directories", "build");
 
-    is_clean = drapeauSubcmd("clean", "clean buildings");
+    // A global variable
+    IS_CLEAN = drapeauSubcmd("clean", "clean buildings");
     bool* clean_help =
         drapeauBool("help", false, "show the help message", "clean");
     const char** clean_dir =
@@ -68,21 +70,21 @@ int main(int argc, char** argv)
                    "the directory to install the project", "install");
 
     bool* main_help = drapeauBool("help", false, "show the help message", NULL);
-    // if any other arguments are given, then sets build_dir = main_build
+    // if any other arguments are given, then sets BUILD_DIR = main_build
     const char** main_build =
         drapeauStr("dir", "./build/", "sets the directory to build", NULL);
-    bool* no_make_build_dir_main =
+    bool* no_make_BUILD_DIR_main =
         drapeauBool("nomake", false, "no to make build directories", NULL);
 
     drapeauParse(argc, argv);
 
     // If any other commandlines are given, then sets the defalut running state
     // will be 'build' subcommand
-    if (!*is_build && !*is_clean && !*is_install)
+    if (!*is_build && !*IS_CLEAN && !*is_install)
     {
         *is_build = true;
-        build_dir = main_build;
-        no_make_build_dir = no_make_build_dir_main;
+        BUILD_DIR = main_build;
+        no_make_BUILD_DIR = no_make_BUILD_DIR_main;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -116,34 +118,34 @@ int main(int argc, char** argv)
     // If build or install subcommand is given, make ./build file
     if (*is_build || *is_install)
     {
-        DIR* check_build_exists = opendir(*build_dir);
+        DIR* check_build_exists = opendir(*BUILD_DIR);
         if (check_build_exists != NULL)
         {
-            if (!checkIsValidDirectory(*build_dir))
+            if (!checkIsValidDirectory(*BUILD_DIR))
             {
                 fprintf(stderr,
                         AEDIF_ERROR_PREFIX "'%s' directory is already exists. "
                                            "cannot build with aedif\n",
-                        *build_dir);
+                        *BUILD_DIR);
                 fprintf(
                     stderr,
                     AEDIF_NOTE_PREFIX
                     "current '%s' directory is not made from aedif, and aedif "
                     "uses the name of directory '%s'.\n",
-                    *build_dir, *build_dir);
+                    *BUILD_DIR, *BUILD_DIR);
                 closedir(check_build_exists);
                 drapeauClose();
                 return 1;
             }
         }
-        else if (!*no_make_build_dir)
+        else if (!*no_make_BUILD_DIR)
         {
-            mkValidDirectoy(*build_dir);
+            mkValidDirectoy(*BUILD_DIR);
         }
     }
 
     // Read the aedif.lua script
-    if (!*is_clean || *read_lua_file)
+    if (!*IS_CLEAN || *read_lua_file)
     {
         lua_State* L = luaL_newstate();
         predefineVars(L);
@@ -159,7 +161,7 @@ int main(int argc, char** argv)
         lua_close(L);
     }
 
-    if (*is_clean)
+    if (*IS_CLEAN)
     {
         String* cmdline = mkString("rm -vr ");
         appendStr(cmdline, *clean_dir);
@@ -212,7 +214,7 @@ int main(int argc, char** argv)
 
         clearEntireString(cmdline);
         appendStr(cmdline, "mv ");
-        appendStr(cmdline, *build_dir);
+        appendStr(cmdline, *BUILD_DIR);
         appendStr(cmdline, "/bin/* ");
         appendStr(cmdline, *install_dir);
         fprintf(stdout, "%s\n", getStr(cmdline));

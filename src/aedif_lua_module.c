@@ -32,12 +32,15 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// Since there is no way to input the build_dir inside lua_Compile,
+/********************/
+/* Global Variables */
+/********************/
+// Since there is no way to input the BUILD_DIR inside lua_Compile,
 // we made a global variable.
-const char** build_dir = NULL;
+const char** BUILD_DIR = NULL;
 
-// Same manner for is_clean
-extern bool* is_clean;
+// Same manner for IS_CLEAN
+extern bool* IS_CLEAN;
 
 /**********************/
 /* Function Signature */
@@ -45,6 +48,15 @@ extern bool* is_clean;
 static int lua_RestoreSettings(lua_State* L);
 static int lua_Execute(lua_State* L);
 static int lua_Compile(lua_State* L);
+
+static void build_binary(String* cmdline, const String** objs,
+                         const ProjectData* pdata, const BuildData* bdata);
+static void build_static_lib(String* cmdline, const String** objs,
+                             const BuildData* bdata);
+static void build_dynamic_lib(String* cmdline, const String* premire,
+                              const String** objs, const BuildData* bdata);
+
+static const String* getFlags(const String** inner, size_t len);
 
 static const char* stdType2str(StdType st);
 static const char* optLevel2str(OptLevel ol);
@@ -78,7 +90,7 @@ void linkAedifModule(lua_State* L)
     lua_settable(L, -3);
 
     lua_pushstring(L, "isclean");
-    if (*is_clean)
+    if (*IS_CLEAN)
     {
         lua_pushboolean(L, true);
     }
@@ -147,14 +159,13 @@ static int lua_Compile(lua_State* L)
     /******************************/
     /* Actual Build Entire System */
     /******************************/
-    String* cmdline = mkString("");
-    String* premire = mkString("");
-    String* library_target_filename = NULL;
+    String* cmdline = mkString(NULL);
+    String* premire = mkString(NULL);
 
     printf("\n    \x1b[1m\x1b[4mBuilding %s\x1b[0m\n", bdata.targetName);
 
     appendStr(cmdline, "mkdir -p ");
-    appendStr(cmdline, *build_dir);
+    appendStr(cmdline, *BUILD_DIR);
     appendStr(cmdline, "/obj/");
     appendStr(cmdline, bdata.targetName);
     printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
@@ -178,11 +189,10 @@ static int lua_Compile(lua_State* L)
         concatString(premire, pdata.errors[i]);
         appendChar(premire, ' ');
     }
-    for (size_t i = 0; i < pdata.flagsSize; ++i)
-    {
-        concatString(premire, pdata.flags[i]);
-        appendChar(premire, ' ');
-    }
+
+    concatFreeString(
+        premire, (String*)getFlags(pdata.compileFlags, pdata.compileFlagsSize));
+    concatFreeString(premire, (String*)getFlags(pdata.flags, pdata.flagsSize));
 
     clearEntireString(cmdline);
     concatString(cmdline, premire);
@@ -219,113 +229,16 @@ static int lua_Compile(lua_State* L)
     switch (bdata.buildType)
     {
     case BUILD_TYPE_BINARY:
-        concatString(cmdline, pdata.compiler);
-        appendStr(cmdline, " -o ");
-        appendStr(cmdline, bdata.targetName);
-        appendChar(cmdline, ' ');
-
-        for (size_t i = 0; i < bdata.srcsSize; ++i)
-        {
-            concatString(cmdline, obj_container[i]);
-            appendChar(cmdline, ' ');
-        }
-
-        for (size_t i = 0; i < bdata.libDirsSize; ++i)
-        {
-            appendStr(cmdline, "-L");
-            appendStr(cmdline, bdata.libDirs[i]);
-            appendChar(cmdline, ' ');
-        }
-        for (size_t i = 0; i < bdata.libsSize; ++i)
-        {
-            appendStr(cmdline, "-l");
-            appendStr(cmdline, bdata.libs[i]);
-            appendChar(cmdline, ' ');
-        }
-
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
-
-        clearEntireString(cmdline);
-        appendStr(cmdline, "mv ");
-        appendStr(cmdline, bdata.targetName);
-        appendChar(cmdline, ' ');
-        appendStr(cmdline, *build_dir);
-        appendStr(cmdline, "/bin");
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
+        build_binary(cmdline, obj_container, &pdata, &bdata);
         break;
 
     case BUILD_TYPE_STATIC: {
-        library_target_filename = mkString("lib");
-        appendStr(library_target_filename, bdata.targetName);
-        appendStr(library_target_filename, ".a");
-
-        appendStr(cmdline, "ar rcu ");
-        concatString(cmdline, library_target_filename);
-        appendChar(cmdline, ' ');
-        for (size_t i = 0; i < bdata.srcsSize; ++i)
-        {
-            concatString(cmdline, obj_container[i]);
-            appendChar(cmdline, ' ');
-        }
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
-
-        clearEntireString(cmdline);
-        appendStr(cmdline, "mv ");
-        concatString(cmdline, library_target_filename);
-        appendChar(cmdline, ' ');
-        appendStr(cmdline, *build_dir);
-        appendStr(cmdline, "/lib");
-
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
-
-        freeString(library_target_filename);
+        build_static_lib(cmdline, obj_container, &bdata);
         break;
     }
 
     case BUILD_TYPE_DYNAMIC: {
-        library_target_filename = mkString("lib");
-        appendStr(library_target_filename, bdata.targetName);
-        appendStr(library_target_filename, ".so");
-
-        concatString(cmdline, premire);
-        for (size_t i = 0; i < bdata.libDirsSize; ++i)
-        {
-            appendStr(cmdline, "-L");
-            appendStr(cmdline, bdata.libDirs[i]);
-            appendChar(cmdline, ' ');
-        }
-        for (size_t i = 0; i < bdata.libsSize; ++i)
-        {
-            appendStr(cmdline, "-l");
-            appendStr(cmdline, bdata.libs[i]);
-            appendChar(cmdline, ' ');
-        }
-        for (size_t i = 0; i < bdata.srcsSize; ++i)
-        {
-            concatString(cmdline, obj_container[i]);
-            appendChar(cmdline, ' ');
-        }
-        appendStr(cmdline, "-o ");
-        concatString(cmdline, library_target_filename);
-
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
-
-        clearEntireString(cmdline);
-        appendStr(cmdline, "mv ");
-        concatString(cmdline, library_target_filename);
-        appendChar(cmdline, ' ');
-        appendStr(cmdline, *build_dir);
-        appendStr(cmdline, "/lib");
-
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
-
-        freeString(library_target_filename);
+        build_dynamic_lib(cmdline, premire, obj_container, &bdata);
         break;
     }
 
@@ -356,6 +269,126 @@ static int lua_Compile(lua_State* L)
     freeInnerBuildData(&bdata);
     freeInnerProjectData(&pdata);
     return 0;
+}
+
+static void build_binary(String* cmdline, const String** objs,
+                         const ProjectData* pdata, const BuildData* bdata)
+{
+    concatString(cmdline, pdata->compiler);
+    appendChar(cmdline, ' ');
+    concatFreeString(cmdline,
+                     (String*)getFlags(pdata->linkFlags, pdata->linkFlagsSize));
+    concatFreeString(cmdline,
+                     (String*)getFlags(pdata->flags, pdata->flagsSize));
+    appendStr(cmdline, "-o ");
+    appendStr(cmdline, bdata->targetName);
+    appendChar(cmdline, ' ');
+
+    for (size_t i = 0; i < bdata->srcsSize; ++i)
+    {
+        concatString(cmdline, objs[i]);
+        appendChar(cmdline, ' ');
+    }
+
+    for (size_t i = 0; i < bdata->libDirsSize; ++i)
+    {
+        appendStr(cmdline, "-L");
+        appendStr(cmdline, bdata->libDirs[i]);
+        appendChar(cmdline, ' ');
+    }
+    for (size_t i = 0; i < bdata->libsSize; ++i)
+    {
+        appendStr(cmdline, "-l");
+        appendStr(cmdline, bdata->libs[i]);
+        appendChar(cmdline, ' ');
+    }
+
+    printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+    system(getStr(cmdline));
+
+    clearEntireString(cmdline);
+    appendStr(cmdline, "mv ");
+    appendStr(cmdline, bdata->targetName);
+    appendChar(cmdline, ' ');
+    appendStr(cmdline, *BUILD_DIR);
+    appendStr(cmdline, "/bin");
+    printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+    system(getStr(cmdline));
+}
+
+static void build_static_lib(String* cmdline, const String** objs,
+                             const BuildData* bdata)
+{
+    String* library_target_filename = mkString("lib");
+    appendStr(library_target_filename, bdata->targetName);
+    appendStr(library_target_filename, ".a");
+
+    appendStr(cmdline, "ar rcu ");
+    concatString(cmdline, library_target_filename);
+    appendChar(cmdline, ' ');
+    for (size_t i = 0; i < bdata->srcsSize; ++i)
+    {
+        concatString(cmdline, objs[i]);
+        appendChar(cmdline, ' ');
+    }
+    printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+    system(getStr(cmdline));
+
+    clearEntireString(cmdline);
+    appendStr(cmdline, "mv ");
+    concatString(cmdline, library_target_filename);
+    appendChar(cmdline, ' ');
+    appendStr(cmdline, *BUILD_DIR);
+    appendStr(cmdline, "/lib");
+
+    printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+    system(getStr(cmdline));
+
+    freeString(library_target_filename);
+}
+
+static void build_dynamic_lib(String* cmdline, const String* premire,
+                              const String** objs, const BuildData* bdata)
+{
+    String* library_target_filename = mkString("lib");
+    appendStr(library_target_filename, bdata->targetName);
+    appendStr(library_target_filename, ".so");
+
+    concatString(cmdline, premire);
+    for (size_t i = 0; i < bdata->libDirsSize; ++i)
+    {
+        appendStr(cmdline, "-L");
+        appendStr(cmdline, bdata->libDirs[i]);
+        appendChar(cmdline, ' ');
+    }
+    for (size_t i = 0; i < bdata->libsSize; ++i)
+    {
+        appendStr(cmdline, "-l");
+        appendStr(cmdline, bdata->libs[i]);
+        appendChar(cmdline, ' ');
+    }
+    for (size_t i = 0; i < bdata->srcsSize; ++i)
+    {
+        concatString(cmdline, objs[i]);
+        appendChar(cmdline, ' ');
+    }
+    appendStr(cmdline, "-o ");
+    concatString(cmdline, library_target_filename);
+
+    printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+    system(getStr(cmdline));
+
+    clearEntireString(cmdline);
+    appendStr(cmdline, "mv ");
+    concatString(cmdline, library_target_filename);
+    appendChar(cmdline, ' ');
+    appendStr(cmdline, *BUILD_DIR);
+    appendStr(cmdline, "/lib");
+
+    printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+    system(getStr(cmdline));
+
+    freeString(library_target_filename);
 }
 
 static const char* stdType2str(StdType st)
@@ -424,7 +457,7 @@ static const String* getObjName(const char* src_name, const char* target_name)
 
     appendStrBack(output, target_name);
     appendStrBack(output, "/obj/");
-    appendStrBack(output, *build_dir);
+    appendStrBack(output, *BUILD_DIR);
     appendStr(output, ".o");
 
     return output;
@@ -443,4 +476,17 @@ static const char* getCurrentOs(void)
 #else
     return "";
 #endif
+}
+
+static const String* getFlags(const String** inner, size_t len)
+{
+    String* output = mkString(NULL);
+
+    for (size_t i = 0; i < len; ++i)
+    {
+        concatString(output, inner[i]);
+        appendChar(output, ' ');
+    }
+
+    return output;
 }

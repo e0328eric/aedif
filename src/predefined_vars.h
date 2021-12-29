@@ -9,6 +9,8 @@
 #define AEDIF_OPT_LEVEL "__AEDIF_OPT_LEVEL__"
 #define AEDIF_WARNINGS "__AEDIF_WARNINGS__"
 #define AEDIF_ERRORS "__AEDIF_ERRORS__"
+#define AEDIF_COMPILE_FLAGS "__AEDIF_FLAGS__"
+#define AEDIF_LINK_FLAGS "__AEDIF_FLAGS__"
 #define AEDIF_FLAGS "__AEDIF_FLAGS__"
 
 void predefineVars(lua_State* L);

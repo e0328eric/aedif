@@ -5,7 +5,7 @@ Since this is the toy project, it is not recommended to use in real production.
 
 # Building aedif
 
-It can be built in both C script and aedif itself. However, in this moment, it is checked to run only at macos and linux (especially, Arch Linux).
+It can be built in both python script and aedif itself. However, in this moment, it is checked to run only at macos and linux (especially, Arch Linux).
 Later, it is planed to support in Windows.
 
 ## Using a C script

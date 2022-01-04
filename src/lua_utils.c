@@ -14,7 +14,7 @@ int getLineNumber(lua_State* L)
         return ar.currentline;
     }
 
-	return -1;
+    return -1;
 }
 
 void dumpStack(lua_State* L)

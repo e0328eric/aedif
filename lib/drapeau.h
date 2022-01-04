@@ -353,6 +353,70 @@ void drapeauParse(int argc, char** argv)
             flag->kind.boolean = true;
             break;
 
+        case FLAG_TYPE_I8:
+            flag->kind.i8 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
+        case FLAG_TYPE_I16:
+            flag->kind.i16 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
+        case FLAG_TYPE_I32:
+            flag->kind.i32 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
+        case FLAG_TYPE_I64:
+            flag->kind.i64 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
+
+        case FLAG_TYPE_U8:
+            flag->kind.u8 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
+        case FLAG_TYPE_U16:
+            flag->kind.u16 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
+        case FLAG_TYPE_U32:
+            flag->kind.u32 = strtoull(argv[arg++], NULL, 0);
+            if (errno == EINVAL || errno == ERANGE)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                return;
+            }
+            break;
+
         case FLAG_TYPE_U64:
             flag->kind.u64 = strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)

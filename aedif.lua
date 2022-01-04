@@ -18,12 +18,11 @@ else
     target = "aedif"
     srcs = {
       "./src/main.c",
+      "./src/parse_args.c",
       "./src/lua_utils.c",
-      "./src/conversion.c",
-      "./src/aedif_lua_module.c",
-      "./src/predefined_vars.c",
-      "./src/project_data.c",
-      "./src/build_data.c",
+      "./src/ffi/os/aedif_os_isfile.c",
+      "./src/ffi/os/aedif_os_isdir.c",
+      "./src/ffi/link_lua.c",
     }
     if aedif.ostype == "macos" then
        lib = "lua"
@@ -38,6 +37,8 @@ else
     includes = {
       "lib/lua-5.4.3/src",
       "lib",
+      "src",
+      "src/ffi/os",
     }
 
     aedif.compile(target, srcs, lib, lib_dir, includes, nil)

@@ -26,6 +26,8 @@
 
 #if defined(__APPLE__) || defined(__linux__)
 #include <sys/types.h>
+#elif defined(_WIN32)
+typedef long long ssize_t;
 #endif
 
 #ifndef DYNSTRDEF
@@ -150,6 +152,11 @@ void appendChar(struct String* pString, char chr)
 
 void appendStr(struct String* pString, const char* str)
 {
+    if (!str)
+    {
+        return;
+    }
+
     size_t strLen = strlen(str);
     if (pString->len + strLen + 1 >= pString->capacity)
     {
@@ -163,6 +170,11 @@ void appendStr(struct String* pString, const char* str)
 
 void appendNStr(struct String* pString, const char* str, size_t strLen)
 {
+    if (!str || strLen == 0)
+    {
+        return;
+    }
+
     if (pString->len + strLen + 1 >= pString->capacity)
     {
         pString->capacity = (pString->capacity + strLen + 1) << 1;

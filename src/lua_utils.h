@@ -3,8 +3,8 @@
 
 #include <stdbool.h>
 
-#include <lua.h>
 #include <lauxlib.h>
+#include <lua.h>
 
 int getLineNumber(lua_State* L);
 void dumpStack(lua_State* L);

@@ -1,178 +1,302 @@
-#if !defined(__APPLE__) && !defined(__linux__)
-#error "build script is tested only at macos"
-#endif
-
-#if !defined(__GNUC__)
-#error "Compiler Support List: gcc"
-#endif
-
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-#if defined(__APPLE__) || defined(__linux__)
-#include <sys/types.h>
-#endif
+#ifdef _WIN32
+#include <windows.h>
 
-#define DYN_STRING_IMPL
-#define DRAPEAU_IMPL
-#include "lib/drapeau.h"
-#include "lib/dynString.h"
+#define C_COMPILER "cl"
+#define C_LINKER "lib"
+#define C_OPTIONS "/w"
+#else
+#include <errno.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
-// change compiler if the user wants other one
 #define C_COMPILER "gcc"
-#define C_STD "-std=c11"
+#define C_LINKER "ar"
 #define C_OPTIONS                                                              \
-    "-O3 -Wall -Wextra -Wpedantic -Wconversion -Werror=return-type"
-#define TARGET_NAME "aedif"
-#define INSTALL_DIR "~/.local/bin/"
+    "-O3 -std=c11 -Wall -Wextra -Wpedantic -Wno-empty-translation-unit "       \
+    "-Werror=return-type"
+#endif
 
-const char* srcs[] = {
-    "./src/main.c",
+#define DRAPEAU_IMPL
+#define DYN_STRING_IMPL
+#include "./lib/drapeau.h"
+#include "./lib/dynString.h"
+
+static String* changeExtension(const char* filename, const char* extension,
+                               const char* where);
+static void compile_srcs(bool is_lib, const char* target_name,
+                         const char* options, const char** srcs,
+                         const char** includes, const char** libs,
+                         const char** lib_dirs, const char* where);
+
+const char* lua_srcs[] = {
+    "./lib/lua-5.4.3/src/lapi.c",     "./lib/lua-5.4.3/src/lauxlib.c",
+    "./lib/lua-5.4.3/src/lbaselib.c", "./lib/lua-5.4.3/src/lcode.c",
+    "./lib/lua-5.4.3/src/lcorolib.c", "./lib/lua-5.4.3/src/lctype.c",
+    "./lib/lua-5.4.3/src/ldblib.c",   "./lib/lua-5.4.3/src/ldebug.c",
+    "./lib/lua-5.4.3/src/ldo.c",      "./lib/lua-5.4.3/src/ldump.c",
+    "./lib/lua-5.4.3/src/lfunc.c",    "./lib/lua-5.4.3/src/lgc.c",
+    "./lib/lua-5.4.3/src/linit.c",    "./lib/lua-5.4.3/src/liolib.c",
+    "./lib/lua-5.4.3/src/llex.c",     "./lib/lua-5.4.3/src/lmathlib.c",
+    "./lib/lua-5.4.3/src/lmem.c",     "./lib/lua-5.4.3/src/loadlib.c",
+    "./lib/lua-5.4.3/src/lobject.c",  "./lib/lua-5.4.3/src/lopcodes.c",
+    "./lib/lua-5.4.3/src/loslib.c",   "./lib/lua-5.4.3/src/lparser.c",
+    "./lib/lua-5.4.3/src/lstate.c",   "./lib/lua-5.4.3/src/lstring.c",
+    "./lib/lua-5.4.3/src/lstrlib.c",  "./lib/lua-5.4.3/src/ltable.c",
+    "./lib/lua-5.4.3/src/ltablib.c",  "./lib/lua-5.4.3/src/ltm.c",
+    "./lib/lua-5.4.3/src/lua.c",      "./lib/lua-5.4.3/src/lundump.c",
+    "./lib/lua-5.4.3/src/lutf8lib.c", "./lib/lua-5.4.3/src/lvm.c",
+    "./lib/lua-5.4.3/src/lzio.c",     NULL,
+};
+
+const char* lua_includes[] = {
+    "./lib/lua-5.4.3/src/",
+    NULL,
+};
+
+const char* main_srcs[] = {
     "./src/lua_utils.c",
-    "./src/conversion.c",
-    "./src/aedif_lua_module.c",
-    "./src/predefined_vars.c",
-    "./src/project_data.c",
-    "./src/build_data.c",
+    "./src/parse_args.c",
+    "./src/ffi/link_lua.c",
+    "./src/ffi/os/aedif_os_abspath.c",
+    "./src/ffi/os/aedif_os_copy.c",
+    "./src/ffi/os/aedif_os_isdir.c",
+    "./src/ffi/os/aedif_os_isfile.c",
+    "./src/ffi/os/aedif_os_issym.c",
+    "./src/ffi/os/aedif_os_mkdir.c",
+    "./src/ffi/os/aedif_os_ostype.c",
+    "./src/ffi/os/aedif_os_remove.c",
+    "./src/ffi/os/aedif_os_rename.c",
+    "./src/main.c",
     NULL,
 };
 
-#ifdef __APPLE__
-const char* libs[] = {
-    "-llua",
+const char* main_includes[] = {
+    "./lib/lua-5.4.3/src/", "./lib/",        "./src/",
+    "./src/ffi/",           "./src/ffi/os/", NULL,
+};
+
+#ifdef _WIN32
+const char* main_libs[] = {
+    "./build/lib/liblua.lib",
+    NULL,
+};
+#else
+const char* main_libs[] = {
+    "lua",
+    NULL,
+};
+const char* main_lib_dirs[] = {
+    "./build/lib/",
     NULL,
 };
 #endif
-#ifdef __linux__
-const char* libs[] = {
-    "-llua",
-    "-lm",
-    "-ldl",
-    NULL,
-};
-#endif
-
-const char* lib_dirs[] = {
-    "-Lbuild/lib",
-    NULL,
-};
-
-const char* includes[] = {
-    "-Ilib/lua-5.4.3/src/",
-    "-Ilib",
-    NULL,
-};
-
-static String* changeExtension(const char* filename, const char* extension);
 
 int main(int argc, char** argv)
 {
-    // parse commandline
-    drapeauStart("cb", "A build script for aedif project written in C");
-
-    bool* is_clean = drapeauSubcmd("c", "Clean the build datas");
-    bool* is_build = drapeauSubcmd("b", "Build aedif");
-    bool* is_install = drapeauSubcmd("i", "Install aedif");
-
-    bool* help_msg = drapeauBool("help", false, "help message", NULL);
+    drapeauStart("cb", "A building script written in C");
+    bool* is_clean = drapeauSubcmd("c", "clean the built project");
+    bool* clean_with_self = drapeauBool(
+        "self", false, "clean the built project and remove itself too", "c");
+    bool* is_clean_help =
+        drapeauBool("help", false, "Show the help message", "c");
+    bool* is_build = drapeauSubcmd("b", "build the project");
+    bool* is_install = drapeauSubcmd("i", "install the project");
+    bool* is_help = drapeauBool("help", false, "Show the help message", NULL);
 
     drapeauParse(argc, argv);
-
-    const char* err;
-    if ((err = drapeauPrintErr()) != NULL)
-    {
-        fprintf(stderr, "%s\n", err);
-        drapeauClose();
-        return 1;
-    }
-
     drapeauClose();
 
-    if (*help_msg)
+    if (*is_help || *is_clean_help)
     {
         drapeauPrintHelp(stdout);
         return 0;
     }
 
-    // if is_clean, delete build directory
+    if (!*is_clean && !*is_build && !*is_install)
+    {
+        *is_build = true;
+    }
+
     if (*is_clean)
     {
-        system("make clean -C ./lib/lua-5.4.3/");
-        system("rm -r ./build");
+        printf("Clean build\n");
+#ifdef _WIN32
+        system("rd /s /q .\\build");
+#else
+        system("rm -rf ./build");
+#endif
+        if (*clean_with_self)
+        {
+            printf("Clean cb itself\n");
+#ifdef _WIN32
+            system("del .\\cb.obj");
+            system("del .\\cb.exe");
+#else
+            system("rm -rf ./cb");
+#endif
+        }
+        return 0;
     }
-    else if (*is_build || *is_install)
+
+    // making directories
+    if (*is_build || *is_install)
     {
-        // make build directory
-        String** objs = malloc(sizeof(srcs) * sizeof(String*));
+#ifdef _WIN32
+        CreateDirectory("./build", NULL);
+        CreateDirectory("./build/obj", NULL);
+        CreateDirectory("./build/obj/lua", NULL);
+        CreateDirectory("./build/obj/aedif", NULL);
+        CreateDirectory("./build/lib", NULL);
+        CreateDirectory("./build/bin", NULL);
 
-        system("mkdir -p ./build/obj/");
-        system("mkdir -p ./build/lib/");
-        system("mkdir -p ./build/bin/");
+        compile_srcs(true, "liblua.lib", "/w", lua_srcs, lua_includes, NULL,
+                     NULL, "./build/obj/lua");
+        compile_srcs(false, "aedif.exe", C_OPTIONS, main_srcs, main_includes,
+                     main_libs, NULL, "./build/obj/aedif");
+#else
+        mkdir("./build", 07755);
+        mkdir("./build/obj", 07755);
+        mkdir("./build/obj/lua", 07755);
+        mkdir("./build/obj/aedif", 07755);
+        mkdir("./build/lib", 07755);
+        mkdir("./build/bin", 07755);
 
-        system("make -C ./lib/lua-5.4.3/");
-        system("mv ./lib/lua-5.4.3/src/liblua.a ./build/lib");
-
-        String* cmdline = mkString(C_COMPILER " " C_STD " " C_OPTIONS " ");
-        for (size_t i = 0; includes[i]; ++i)
-        {
-            appendStr(cmdline, includes[i]);
-            appendChar(cmdline, ' ');
-        }
-        size_t location = getLen(cmdline);
-
-        for (size_t i = 0; srcs[i]; ++i)
-        {
-            clearStringAfter(cmdline, location);
-            appendStr(cmdline, "-c ");
-            appendStr(cmdline, srcs[i]);
-            appendStr(cmdline, " -o ");
-            objs[i] = changeExtension(srcs[i], "o");
-            concatString(cmdline, objs[i]);
-            printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-            system(getStr(cmdline));
-        }
-        objs[sizeof(srcs)] = NULL;
-
-        clearEntireString(cmdline);
-        appendStr(cmdline, C_COMPILER " -o " TARGET_NAME " ");
-        for (size_t i = 0; objs[i]; ++i)
-        {
-            concatFreeString(cmdline, objs[i]);
-            appendChar(cmdline, ' ');
-        }
-        for (size_t i = 0; lib_dirs[i]; ++i)
-        {
-            appendStr(cmdline, lib_dirs[i]);
-            appendChar(cmdline, ' ');
-        }
-        for (size_t i = 0; libs[i]; ++i)
-        {
-            appendStr(cmdline, libs[i]);
-            appendChar(cmdline, ' ');
-        }
-        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
-        system(getStr(cmdline));
-
-        if (*is_install)
-        {
-            printf("mv " TARGET_NAME " " INSTALL_DIR "\n");
-            system("mv " TARGET_NAME " " INSTALL_DIR);
-        }
-        else
-        {
-            printf("mv " TARGET_NAME " ./build/bin/\n");
-            system("mv " TARGET_NAME " ./build/bin/");
-        }
-
-        freeString(cmdline);
-        free(objs);
+        compile_srcs(true, "liblua.a", "-std=gnu99 -Wno-gnu-label-as-value",
+                     lua_srcs, lua_includes, NULL, NULL, "./build/obj/lua");
+        compile_srcs(false, "aedif", C_OPTIONS, main_srcs, main_includes,
+                     main_libs, main_lib_dirs, "./build/obj/aedif");
+#endif
     }
 
     return 0;
 }
 
-static String* changeExtension(const char* filename, const char* extension)
+static void compile_srcs(bool is_lib, const char* target_name,
+                         const char* options, const char** srcs,
+                         const char** includes, const char** libs,
+                         const char** lib_dirs, const char* where)
+{
+    size_t src_len = 0;
+    while (srcs[src_len])
+    {
+        ++src_len;
+    }
+
+    String* cmdline = mkString(NULL);
+    String** objs = malloc(sizeof(String*) * (src_len + 1));
+    objs[src_len] = NULL;
+
+    appendStr(cmdline, C_COMPILER " ");
+    appendStr(cmdline, options);
+    appendChar(cmdline, ' ');
+
+    for (; *includes; ++includes)
+    {
+#ifdef _WIN32
+        appendStr(cmdline, "/I");
+#else
+        appendStr(cmdline, "-I");
+#endif
+        appendStr(cmdline, *includes);
+        appendChar(cmdline, ' ');
+    }
+
+#ifdef _WIN32
+    appendStr(cmdline, "/c ");
+#else
+    appendStr(cmdline, "-c ");
+#endif
+    size_t len = getLen(cmdline);
+    for (size_t i = 0; i < src_len; ++i)
+    {
+        clearStringAfter(cmdline, len);
+        appendStr(cmdline, srcs[i]);
+#ifdef _WIN32
+        objs[i] = changeExtension(srcs[i], "obj", where);
+        appendStr(cmdline, " /Fo: ");
+#else
+        objs[i] = changeExtension(srcs[i], "o", where);
+        appendStr(cmdline, " -o ");
+#endif
+        concatString(cmdline, objs[i]);
+        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+        system(getStr(cmdline));
+    }
+
+    clearEntireString(cmdline);
+    if (is_lib)
+    {
+        appendStr(cmdline, C_LINKER " ");
+#ifdef _WIN32
+        appendStr(cmdline, " /out:");
+        appendStr(cmdline, "./build/lib/");
+        appendStr(cmdline, target_name);
+#else
+        appendStr(cmdline, "rcu ");
+        appendStr(cmdline, "./build/lib/");
+        appendStr(cmdline, target_name);
+#endif
+        appendChar(cmdline, ' ');
+
+        for (size_t i = 0; i < src_len; ++i)
+        {
+            concatFreeString(cmdline, objs[i]);
+            appendChar(cmdline, ' ');
+        }
+        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+        system(getStr(cmdline));
+    }
+    else
+    {
+        appendStr(cmdline, C_COMPILER " ");
+        for (size_t i = 0; objs[i]; ++i)
+        {
+            concatFreeString(cmdline, objs[i]);
+            appendChar(cmdline, ' ');
+        }
+#ifdef _WIN32
+        for (; *libs; ++libs)
+        {
+            appendStr(cmdline, *libs);
+            appendChar(cmdline, ' ');
+        }
+        appendStr(cmdline, " /Fe:");
+        appendStr(cmdline, "./build/bin/");
+        appendStr(cmdline, target_name);
+#else
+        appendStr(cmdline, " -o ");
+        appendStr(cmdline, "./build/bin/");
+        appendStr(cmdline, target_name);
+        appendChar(cmdline, ' ');
+        for (; *libs; ++libs)
+        {
+            appendStr(cmdline, "-l");
+            appendStr(cmdline, *libs);
+            appendChar(cmdline, ' ');
+        }
+        for (; *lib_dirs; ++lib_dirs)
+        {
+            appendStr(cmdline, "-L");
+            appendStr(cmdline, *lib_dirs);
+            appendChar(cmdline, ' ');
+        }
+#endif
+        printf(DYNS_FMT "\n", DYNS_ARG(cmdline));
+        system(getStr(cmdline));
+    }
+
+    free(objs);
+    freeString(cmdline);
+}
+
+static String* changeExtension(const char* filename, const char* extension,
+                               const char* where)
 {
     ssize_t location;
     String* output = mkString(filename);
@@ -187,14 +311,21 @@ static String* changeExtension(const char* filename, const char* extension)
     appendChar(output, '.');
     appendStr(output, extension);
 
-    if ((location = findCharNth(output, '/', 2)) < 0)
+    if ((location = findCharReverse(output, '/')) < 0)
     {
         freeString(output);
         return NULL;
     }
 
     clearStringBefore(output, location);
-    appendStrBack(output, "./build/obj");
+    if (!where)
+    {
+        appendStrBack(output, "./build/obj");
+    }
+    else
+    {
+        appendStrBack(output, where);
+    }
 
     return output;
 }

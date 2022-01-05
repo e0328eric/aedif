@@ -23,5 +23,6 @@ int aedif_os_abspath(lua_State* L);
 int aedif_os_mkdir(lua_State* L);
 int aedif_os_copy(lua_State* L);
 int aedif_os_rename(lua_State* L);
-int aedif_os_remove(lua_State* L);
+int aedif_os_rmfile(lua_State* L);
+int aedif_os_rmdir(lua_State* L);
 int aedif_os_ostype(lua_State* L);

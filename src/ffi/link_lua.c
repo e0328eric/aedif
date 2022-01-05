@@ -13,11 +13,12 @@ static struct
     {"isdir", aedif_os_isdir},
     /* {"issym", aedif_os_issym}, */
     /* {"abspath", aedif_os_abspath}, */
-    /* {"mkdir", aedif_os_mkdir}, */
-    /* {"copy", aedif_os_copy}, */
-    /* {"rename", aedif_os_rename}, */
-    /* {"remove", aedif_os_remove}, */
-    /* {"ostype", aedif_os_ostype}, */
+    {"mkdir", aedif_os_mkdir},
+    {"copy", aedif_os_copy},
+    {"rename", aedif_os_rename},
+    {"rmfile", aedif_os_rmfile},
+    {"rmdir", aedif_os_rmdir},
+    {"ostype", aedif_os_ostype},
     {NULL, NULL},
     /* {"compile", aedif_compile}, */
     /* {"recompile", aedif_recompile}, */

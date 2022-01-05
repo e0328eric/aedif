@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include <lauxlib.h>
 #include <lua.h>
 #include <lualib.h>
@@ -14,8 +18,27 @@
 
 #define AEDIF_VALID_DIR_STR "The  \xab aedif\xbc building \t  \xcd tool\xde"
 
+#ifdef _WIN32
+// Some old MinGW/CYGWIN distributions don't define this:
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif
+
+static HANDLE stdoutHandle;
+static DWORD outModeInit;
+
+// copied from:
+// https://stackoverflow.com/questions/62784691/coloring-text-in-cmd-c
+void setupConsole(void);
+void restoreConsole(void);
+#endif
+
 int main(int argc, char** argv)
 {
+#ifdef _WIN32
+    setupConsole();
+#endif
+
     switch (parseArgs(argc, argv))
     {
     case 0:
@@ -50,5 +73,49 @@ int main(int argc, char** argv)
 
     lua_close(L);
 
+#ifdef _WIN32
+    restoreConsole();
+#endif
+
     return 0;
+}
+
+// copied from:
+// https://stackoverflow.com/questions/62784691/coloring-text-in-cmd-c
+void setupConsole(void)
+{
+    DWORD outMode = 0;
+    stdoutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    if (stdoutHandle == INVALID_HANDLE_VALUE)
+    {
+        exit(GetLastError());
+    }
+
+    if (!GetConsoleMode(stdoutHandle, &outMode))
+    {
+        exit(GetLastError());
+    }
+
+    outModeInit = outMode;
+
+    // Enable ANSI escape codes
+    outMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+
+    if (!SetConsoleMode(stdoutHandle, outMode))
+    {
+        exit(GetLastError());
+    }
+}
+
+void restoreConsole(void)
+{
+    // Reset colors
+    printf("\x1b[0m");
+
+    // Reset console mode
+    if (!SetConsoleMode(stdoutHandle, outModeInit))
+    {
+        exit(GetLastError());
+    }
 }

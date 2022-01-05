@@ -1,4 +1,6 @@
 /cb
+/cb.exe
+/cb.obj
 /build
 /lib/lua-5.4.3/src/*.o
 /lib/lua-5.4.3/src/lua

@@ -53,9 +53,9 @@
 // Function Signatures
 DRAPEAUDEF void drapeauStart(const char* restrict name,
                              const char* restrict desc);
-DRAPEAUDEF void drapeauParse(int argc, char** argv);
+DRAPEAUDEF bool drapeauParse(int argc, char** argv, bool allow_empty_arg);
 DRAPEAUDEF void drapeauClose(void);
-DRAPEAUDEF const char* drapeauPrintErr(void);
+DRAPEAUDEF const char* drapeauGetErr(void);
 DRAPEAUDEF void drapeauPrintHelp(FILE* fp);
 
 // clang-format off
@@ -286,7 +286,7 @@ void drapeauPrintHelp(FILE* fp)
 // TODO: drapeau only thinks a given string is a flag if it has only one '-'
 // letter. For example, -v, -h and -version are considered as a flag, but
 // --version, --help are not.
-void drapeauParse(int argc, char** argv)
+bool drapeauParse(int argc, char** argv, bool allow_empty_arg)
 {
     Flag* flags;
     size_t flags_len;
@@ -295,7 +295,15 @@ void drapeauParse(int argc, char** argv)
 
     if (argc < 2)
     {
-        return;
+        if (!allow_empty_arg)
+        {
+            drapeauPrintHelp(stderr);
+            return false;
+        }
+        else
+        {
+            return true;
+        }
     }
 
     // check whether has a subcommand
@@ -305,7 +313,7 @@ void drapeauParse(int argc, char** argv)
         if (!findSubcmdPosition(&pos, argv[arg++]))
         {
             drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;
-            return;
+            return false;
         }
         activated_subcmd = &subcommands[pos];
         activated_subcmd->is_activate = true;
@@ -329,7 +337,7 @@ void drapeauParse(int argc, char** argv)
         if (argv[arg][0] != '-')
         {
             drapeau_err = DRAPEAU_ERR_KIND_FLAG_FIND;
-            return;
+            return false;
         }
 
         size_t j = 0;
@@ -341,7 +349,7 @@ void drapeauParse(int argc, char** argv)
         if (j >= flags_len)
         {
             drapeau_err = DRAPEAU_ERR_KIND_FLAG_FIND;
-            return;
+            return false;
         }
 
         flag = &flags[j];
@@ -354,75 +362,74 @@ void drapeauParse(int argc, char** argv)
             break;
 
         case FLAG_TYPE_I8:
-            flag->kind.i8 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.i8 = (int8_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
         case FLAG_TYPE_I16:
-            flag->kind.i16 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.i16 = (int16_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
         case FLAG_TYPE_I32:
-            flag->kind.i32 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.i32 = (int32_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
         case FLAG_TYPE_I64:
-            flag->kind.i64 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.i64 = (int64_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
-
         case FLAG_TYPE_U8:
-            flag->kind.u8 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.u8 = (uint8_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
         case FLAG_TYPE_U16:
-            flag->kind.u16 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.u16 = (uint16_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
         case FLAG_TYPE_U32:
-            flag->kind.u32 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.u32 = (uint32_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
         case FLAG_TYPE_U64:
-            flag->kind.u64 = strtoull(argv[arg++], NULL, 0);
+            flag->kind.u64 = (uint64_t)strtoull(argv[arg++], NULL, 0);
             if (errno == EINVAL || errno == ERANGE)
             {
                 drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                return false;
             }
             break;
 
@@ -432,9 +439,11 @@ void drapeauParse(int argc, char** argv)
 
         default:
             assert(false && "Unreatchable(drapeauParse)");
-            return;
+            return false;
         }
     }
+
+    return true;
 }
 
 bool* drapeauSubcmd(const char* restrict subcmd_name, const char* restrict desc)
@@ -499,7 +508,7 @@ DRAPEAU_TYPES(T)
 #undef T
 
 // TODO: implement better and clean error printing message
-const char* drapeauPrintErr(void)
+const char* drapeauGetErr(void)
 {
     switch (drapeau_err)
     {
@@ -516,7 +525,7 @@ const char* drapeauPrintErr(void)
         return "Invalid number or overflowed number is given";
 
     default:
-        assert(false && "Unreatchable (drapeauPrintErr)");
+        assert(false && "Unreatchable (drapeauGetErr)");
         return "";
     }
 }

@@ -110,7 +110,12 @@ int main(int argc, char** argv)
     bool* is_install = drapeauSubcmd("i", "install the project");
     bool* is_help = drapeauBool("help", false, "Show the help message", NULL);
 
-    drapeauParse(argc, argv);
+    if (!drapeauParse(argc, argv, true))
+    {
+        fprintf(stderr, "%s\n", drapeauGetErr());
+        drapeauClose();
+        return 1;
+    }
     drapeauClose();
 
     if (*is_help || *is_clean_help)

@@ -9,22 +9,26 @@ int aedif_os_copy(lua_State* L)
     const char* orig_tmp = luaL_checkstring(L, 1);
     const char* new_tmp = luaL_checkstring(L, 2);
 
-    wchar_t* orig_file = malloc(sizeof(wchar_t) * PATH_CAPACITY);
-    wchar_t* new_file = malloc(sizeof(wchar_t) * PATH_CAPACITY);
+    const wchar_t* orig_filename = malloc(sizeof(wchar_t) * PATH_CAPACITY);
+    const wchar_t* new_filename = malloc(sizeof(wchar_t) * PATH_CAPACITY);
 
     if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, orig_tmp, -1,
-                            orig_file, PATH_CAPACITY - 1) == 0 ||
+                            orig_filename, PATH_CAPACITY - 1) == 0 ||
         MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, new_tmp, -1,
-                            new_file, PATH_CAPACITY - 1) == 0)
+                            new_filename, PATH_CAPACITY - 1) == 0)
     {
-        free(orig_file);
-        free(new_file);
+        free(orig_filename);
+        free(new_filename);
         lua_pushstring(L, AEDIF_ERROR_PREFIX "cannot encode a directory name");
         return lua_error(L);
     }
 
-    orig_file[PATH_CAPACITY - 1] = L'\0';
-    new_file[PATH_CAPACITY - 1] = L'\0';
+    orig_filename[PATH_CAPACITY - 1] = L'\0';
+    new_filename[PATH_CAPACITY - 1] = L'\0';
+#else
+    const char* orig_filename = luaL_checkstring(L, 1);
+    const char* new_filename = luaL_checkstring(L, 2);
+#endif
 
     bool do_not_override;
     switch (lua_type(L, 3))
@@ -53,10 +57,12 @@ int aedif_os_copy(lua_State* L)
         break;
     }
 
-    lua_pushboolean(L, CopyFileW(orig_file, new_file, do_not_override) != 0);
+#ifdef _WIN32
+    lua_pushboolean(
+        L, CopyFileW(orig_filename, new_filename, do_not_override) != 0);
 
-    free(orig_file);
-    free(new_file);
+    free(orig_filename);
+    free(new_filename);
 #else
 #endif
 

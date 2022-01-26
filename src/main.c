@@ -82,6 +82,7 @@ int main(int argc, char** argv)
 
 // copied from:
 // https://stackoverflow.com/questions/62784691/coloring-text-in-cmd-c
+#ifdef _WIN32
 void setupConsole(void)
 {
     DWORD outMode = 0;
@@ -119,3 +120,4 @@ void restoreConsole(void)
         exit(GetLastError());
     }
 }
+#endif

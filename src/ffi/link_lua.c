@@ -11,7 +11,7 @@ static struct
 } link_func_list[] = {
     {"isfile", aedif_os_isfile},
     {"isdir", aedif_os_isdir},
-    /* {"issym", aedif_os_issym}, */
+    {"issym", aedif_os_issym},
     /* {"abspath", aedif_os_abspath}, */
     {"mkdir", aedif_os_mkdir},
     {"copy", aedif_os_copy},

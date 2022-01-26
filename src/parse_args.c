@@ -58,7 +58,7 @@ int parseArgs(int argc, char** argv)
     g_no_make_build_dir_main =
         drapeauBool("nomake", false, "no to make build directories", NULL);
 
-    drapeauParse(argc, argv);
+    drapeauParse(argc, argv, true);
 
     // If any other commandlines are given, then sets the defalut running state
     // will be 'build' subcommand
@@ -70,7 +70,7 @@ int parseArgs(int argc, char** argv)
     }
 
     const char* err;
-    if ((err = drapeauPrintErr()) != NULL)
+    if ((err = drapeauGetErr()) != NULL)
     {
         fprintf(stderr, "%s\n", err);
         drapeauClose();

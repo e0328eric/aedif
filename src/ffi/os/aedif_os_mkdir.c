@@ -57,6 +57,31 @@ int aedif_os_mkdir(lua_State* L)
 
     free(dirname);
 #else
+    const char* dirname = luaL_checkstring(L, 1);
+
+    char buffer[PATH_CAPACITY];
+    PathIter iter = {dirname, dirname};
+    char* p_buf_iter = buffer;
+
+    while (*iter.start != '\0')
+    {
+        while (*iter.current != '/' && *iter.current != '\0')
+        {
+            ++iter.current;
+        }
+
+        memcpy(p_buf_iter, iter.start,
+               sizeof(char) * (size_t)(iter.current - iter.start));
+        p_buf_iter += (size_t)(iter.current - iter.start);
+        iter.start = iter.current++;
+        *p_buf_iter = '\0';
+
+        if (mkdir(buffer, 07755) != 0 && errno != EEXIST)
+        {
+            lua_pushboolean(L, false);
+            return 1;
+        }
+    }
 #endif
 
     lua_pushboolean(L, true);

@@ -14,7 +14,6 @@
         lua_pushstring(L, strerror(errno));                                    \
         lua_concat(L, 8);                                                      \
         return lua_error(L);                                                   \
-        ;                                                                      \
     }
 #endif
 

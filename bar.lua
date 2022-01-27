@@ -9,4 +9,4 @@
 -- aedif.os.mkdir("./bar/foo/baz")
 -- aedif.os.mkdir("bar/foo/bbar")
 
-print(aedif.os.copy("foo.lua", "foo.lua", true))
+print(aedif.os.copy("foo.lua", "bar.lua", false))

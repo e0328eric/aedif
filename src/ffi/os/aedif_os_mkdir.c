@@ -76,7 +76,7 @@ int aedif_os_mkdir(lua_State* L)
         iter.start = iter.current++;
         *p_buf_iter = '\0';
 
-        if (mkdir(buffer, 07755) != 0 && errno != EEXIST)
+        if (mkdir(buffer, 0755) != 0 && errno != EEXIST)
         {
             lua_pushboolean(L, false);
             return 1;

@@ -139,12 +139,16 @@ int main(int argc, char** argv)
 #endif
         if (*clean_with_self)
         {
-            printf("Clean cb itself\n");
+            printf("Clean the build executable itself\n");
+            String* filename = mkString(argv[0]);
+            // TODO: run this script on Windows to test that this code works
 #ifdef _WIN32
+            appendStrBack(filename, "del ");
             system("del .\\cb.obj");
-            system("del .\\cb.exe");
+            system(getStr(filename));
 #else
-            system("rm -rf ./cb");
+            appendStrBack(filename, "rm -rf ");
+            system(getStr(filename));
 #endif
         }
         return 0;

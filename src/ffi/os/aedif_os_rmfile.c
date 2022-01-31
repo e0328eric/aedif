@@ -4,19 +4,18 @@
 #define CHECK_IS_SUCESSED(_bool)                                               \
     if (!(_bool))                                                              \
     {                                                                          \
-        lua_pushstring(L, AEDIF_ERROR_PREFIX);                                 \
-        luaL_where(L, 1);                                                      \
-        lua_pushstring(L, " cannot remove a file `");                          \
-        lua_pushstring(L, filename);                                           \
-        lua_pushstring(L, "`\n" AEDIF_PADDING_PREFIX);                         \
-        lua_pushstring(L, strerror(errno));                                    \
-        lua_concat(L, 6);                                                      \
+        snprintf(msg, 250, "cannot remove a file `%s`\n%s\n", filename,        \
+                 strerror(errno));                                             \
+        String* err_msg = get_error_str(L, AEDIF_ERROR, msg);                  \
+        lua_pushstring(L, getStr(err_msg));                                    \
+        freeString(err_msg);                                                   \
         return lua_error(L);                                                   \
     }
 #endif
 
 int aedif_os_rmfile(lua_State* L)
 {
+    char msg[250];
     const char* filename = luaL_checkstring(L, 1);
 
 #ifdef _WIN32
@@ -34,7 +33,20 @@ int aedif_os_rmfile(lua_State* L)
 
     lua_pushboolean(L, DeleteFileW(buffer) != 0);
 #else
-    CHECK_IS_SUCESSED(unlink(filename) == 0 || errno == ENOENT);
+    if (unlink(filename) != 0)
+    {
+        switch (errno)
+        {
+        case ENOENT:
+            snprintf(msg, 250, "The file `%s` is already removed\n", filename);
+            print_error(L, AEDIF_NOTE, msg);
+            lua_pushboolean(L, false);
+            return 1;
+
+        default:
+            CHECK_IS_SUCESSED(false);
+        }
+    }
     lua_pushboolean(L, true);
 #endif
 

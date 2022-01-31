@@ -11,7 +11,7 @@
 #include <lua.h>
 #include <lualib.h>
 
-#include "error/err_prefix.h"
+#include "error/print_error.h"
 #include "ffi/link_lua.h"
 #include "lua_utils.h"
 #include "parse_args.h"
@@ -55,8 +55,8 @@ int main(int argc, char** argv)
     FILE* aedif_lua_file = fopen("foo.lua", "r");
     if (aedif_lua_file == NULL)
     {
-        fprintf(stderr, AEDIF_ERROR_PREFIX
-                "aedif cannot find the bootstrap file (aka. foo.lua)\n");
+        print_error(NULL, AEDIF_ERROR,
+                    "aedif cannot find the bootstrap file (aka. foo.lua)\n");
         return 1;
     }
     fclose(aedif_lua_file);

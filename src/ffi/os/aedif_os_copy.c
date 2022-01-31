@@ -4,15 +4,12 @@
 #define CHECK_IS_SUCESSED(_bool)                                               \
     if (!(_bool))                                                              \
     {                                                                          \
-        lua_pushstring(L, AEDIF_ERROR_PREFIX);                                 \
         luaL_where(L, 1);                                                      \
-        lua_pushstring(L, " cannot copy a file `");                            \
-        lua_pushstring(L, orig_filename);                                      \
-        lua_pushstring(L, "` into `");                                         \
-        lua_pushstring(L, new_filename);                                       \
-        lua_pushstring(L, "`\n" AEDIF_PADDING_PREFIX);                         \
-        lua_pushstring(L, strerror(errno));                                    \
-        lua_concat(L, 8);                                                      \
+        snprintf(msg, 250, "cannot copy a file `%s` into `%s`\n%s\n",          \
+                 orig_filename, new_filename, strerror(errno));                \
+        String* err_msg = get_error_str(L, AEDIF_ERROR, msg);                  \
+        lua_pushstring(L, getStr(err_msg));                                    \
+        freeString(err_msg);                                                   \
         return lua_error(L);                                                   \
     }
 #endif
@@ -22,7 +19,9 @@
 // possible. True makes it valid, false or nil makes not.
 int aedif_os_copy(lua_State* L)
 {
+    char msg[250];
 #ifdef _WIN32
+    String* err_msg = NULL;
     const char* orig_tmp = luaL_checkstring(L, 1);
     const char* new_tmp = luaL_checkstring(L, 2);
 
@@ -36,7 +35,10 @@ int aedif_os_copy(lua_State* L)
     {
         free(orig_filename);
         free(new_filename);
-        lua_pushstring(L, AEDIF_ERROR_PREFIX "cannot encode a directory name");
+        err_msg =
+            get_error_str(L, AEDIF_ERROR, "cannot encode a directory name");
+        lua_pushstring(L, getStr(err_msg));
+        freeString(err_msg);
         return lua_error(L);
     }
 
@@ -58,17 +60,11 @@ int aedif_os_copy(lua_State* L)
         can_overwrite = lua_toboolean(L, 3);
         break;
 
-    // TODO: better error message
     default:
-        lua_pushstring(L, AEDIF_WARN_PREFIX);
-        luaL_where(L, 1);
-        lua_pushstring(L, " type mismatched.\n" AEDIF_PADDING_PREFIX
-                          "expected nil or boolean, got ");
-        lua_pushstring(L, lua_typename(L, 3));
-        lua_pushstring(L, ".");
-        lua_concat(L, 5);
-        printf("%s\n", lua_tostring(L, -1));
-        lua_pop(L, 1);
+        snprintf(msg, 250,
+                 "Type mismatched. Expected nil or boolean, got %s.\n",
+                 lua_typename(L, 3));
+        print_error(L, AEDIF_WARNING, msg);
         lua_pushboolean(L, false);
         return 1;
         break;
@@ -101,17 +97,11 @@ int aedif_os_copy(lua_State* L)
     }
     else
     {
-        lua_pushstring(L, AEDIF_WARN_PREFIX);
-        luaL_where(L, 1);
-        lua_pushstring(L, " cannot overwrite `");
-        lua_pushstring(L, new_filename);
-        lua_pushstring(L, "`\n");
-        lua_pushstring(
-            L, AEDIF_PADDING_PREFIX
-            "the user specified not to overwrite a destination file.");
-        lua_concat(L, 6);
-        printf("%s\n", lua_tostring(L, -1));
-        lua_pop(L, 1);
+        snprintf(msg, 250,
+                 "cannot overwrite `%s`\n the user specified not to overwrite "
+                 "a destination file.",
+                 new_filename);
+        print_error(L, AEDIF_WARNING, msg);
         lua_pushboolean(L, false);
     }
 

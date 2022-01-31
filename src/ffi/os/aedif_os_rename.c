@@ -3,6 +3,7 @@
 int aedif_os_rename(lua_State* L)
 {
 #ifdef _WIN32
+    String* err_msg = NULL;
     const char* orig_tmp = luaL_checkstring(L, 1);
     const char* new_tmp = luaL_checkstring(L, 2);
 
@@ -16,7 +17,10 @@ int aedif_os_rename(lua_State* L)
     {
         free(orig_file);
         free(new_file);
-        lua_pushstring(L, AEDIF_ERROR_PREFIX "cannot encode a directory name");
+        err_msg =
+            get_error_str(L, AEDIF_ERROR, "cannot encode a directory name");
+        lua_pushstring(L, getStr(err_msg));
+        freeString(err_msg);
         return lua_error(L);
     }
 
@@ -28,6 +32,7 @@ int aedif_os_rename(lua_State* L)
     free(orig_file);
     free(new_file);
 #else
+    (void)(L);
 #endif
 
     return 1;

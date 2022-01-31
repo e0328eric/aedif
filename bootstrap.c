@@ -62,6 +62,7 @@ const char* lua_includes[] = {
 const char* main_srcs[] = {
     "./src/lua_utils.c",
     "./src/parse_args.c",
+    "./src/error/print_error.c",
     "./src/ffi/link_lua.c",
     "./src/ffi/os/aedif_os_abspath.c",
     "./src/ffi/os/aedif_os_copy.c",
@@ -170,12 +171,12 @@ int main(int argc, char** argv)
         compile_srcs(false, "aedif.exe", C_OPTIONS, main_srcs, main_includes,
                      main_libs, NULL, "./build/obj/aedif");
 #else
-        mkdir("./build", 07755);
-        mkdir("./build/obj", 07755);
-        mkdir("./build/obj/lua", 07755);
-        mkdir("./build/obj/aedif", 07755);
-        mkdir("./build/lib", 07755);
-        mkdir("./build/bin", 07755);
+        mkdir("./build", 00755);
+        mkdir("./build/obj", 00755);
+        mkdir("./build/obj/lua", 00755);
+        mkdir("./build/obj/aedif", 00755);
+        mkdir("./build/lib", 00755);
+        mkdir("./build/bin", 00755);
 
         compile_srcs(true, "liblua.a", "-std=gnu99 -Wno-gnu-label-as-value",
                      lua_srcs, lua_includes, NULL, NULL, "./build/obj/lua");

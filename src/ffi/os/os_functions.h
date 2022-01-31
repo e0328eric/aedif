@@ -1,6 +1,7 @@
 #ifdef _WIN32
 #include <windows.h>
 #else
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -8,6 +9,7 @@
 #endif
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -15,7 +17,7 @@
 #include <lua.h>
 #include <lualib.h>
 
-#include "error/err_prefix.h"
+#include "error/print_error.h"
 
 #define PATH_CAPACITY 4096
 

@@ -16,12 +16,16 @@ int aedif_os_mkdir(lua_State* L)
 #ifdef _WIN32
     const char* dirname_tmp = luaL_checkstring(L, 1);
     wchar_t* dirname = malloc(sizeof(wchar_t) * PATH_CAPACITY);
+    String* err_msg = NULL;
 
     if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, dirname_tmp, -1,
                             dirname, PATH_CAPACITY - 1) == 0)
     {
         free(dirname);
-        lua_pushstring(L, AEDIF_ERROR_PREFIX "cannot encode a directory name");
+        err_msg =
+            get_error_str(L, AEDIF_ERROR, "cannot encode a directory name");
+        lua_pushstring(L, getStr(err_msg));
+        freeString(err_msg);
         return lua_error(L);
     }
 

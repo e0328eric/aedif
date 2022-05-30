@@ -1,5 +1,6 @@
 /cb
 /build
-/lib/lua-5.4.3/src/*.o
-/lib/lua-5.4.3/src/lua
-/lib/lua-5.4.3/src/luac
+/lib/lua/src/*.o
+/lib/lua/src/lua
+/lib/lua/src/luac
+/.ccls-cache

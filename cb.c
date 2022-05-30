@@ -2,10 +2,6 @@
 #error "build script is tested only at macos"
 #endif
 
-#if !defined(__GNUC__)
-#error "Compiler Support List: gcc"
-#endif
-
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +16,7 @@
 #include "lib/dynString.h"
 
 // change compiler if the user wants other one
-#define C_COMPILER "gcc"
+#define C_COMPILER "cc"
 #define C_STD "-std=c11"
 #define C_OPTIONS                                                              \
     "-O3 -Wall -Wextra -Wpedantic -Wconversion -Werror=return-type"
@@ -59,7 +55,7 @@ const char* lib_dirs[] = {
 };
 
 const char* includes[] = {
-    "-Ilib/lua-5.4.3/src/",
+    "-Ilib/lua/src/",
     "-Ilib",
     NULL,
 };

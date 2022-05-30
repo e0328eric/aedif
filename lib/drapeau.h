@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021  Sungbae Jeong
+// Copyright (C) 2021, 2022  Sungbae Jeong
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,20 +20,28 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Drapeau Command line parser library v0.1.0
+// Drapeau Command line parser library v0.3.0
 //
 // It is a command line parser inspired by go's flag module and tsodings flag.h
 // ( tsodings flag.h source code : https://github.com/tsoding/flag.h )
 //
+//
+// Changelog
+// v0.1.0:                    First release
+// v0.2.0:                    Add essential arguments(it is called in here as
+//                            main argument)
+// v0.2.1:                    Fix a crucial memory bug
+//
+// v0.3.0:                    Supports a long flag and a short flag
 
 #ifndef DRAPEAU_LIBRARY_H_
 #define DRAPEAU_LIBRARY_H_
 
-// TODO: Test this library in C++
-// #ifdef __cplusplus
-// extern "C"
-// {
-// #endif
+// clang-format off
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 #ifndef DRAPEAUDEF
 #ifdef DRAPEAU_STATIC
@@ -43,22 +51,49 @@
 #endif // DRAPEAU_STATIC
 #endif // DRAPEAUDEF
 
+#ifdef __cplusplus
+#include <cstdbool>
+#include <cstdint>
+#include <cstdio>
+#else
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#endif // __cpluplus
 
 /* NOTE: Every flag, subcommand names and descriptions must have static
  * lifetimes
  */
+// Macros
+//
+// * DRAPEAU_IMPL
+// This library follows stb header only library format. That macro makes implementation
+// of functions include on the one of the source file.
+//
+// * NOT_ALLOW_EMPTY_ARGUMENT
+// If this macro turns on, then drapeau disallows the empty argument and emit an error
+#define NO_SHORT 0
+#define NO_LONG ""
+#define NO_SUBCMD NULL
+// * NO_SHORT
+// Default value of the short flag name
+// * NO_LONG
+// Default value of the long flag name
+// * NO_SUBCMD
+// Default value of the subcmd specifier of the flag declare functions
+
 // Function Signatures
-DRAPEAUDEF void drapeauStart(const char* restrict name,
-                             const char* restrict desc);
-DRAPEAUDEF void drapeauParse(int argc, char** argv);
+DRAPEAUDEF void drapeauStart(const char* name, const char* desc);
+DRAPEAUDEF bool drapeauParse(int argc, char** argv);
 DRAPEAUDEF void drapeauClose(void);
-DRAPEAUDEF const char* drapeauPrintErr(void);
+DRAPEAUDEF const char* drapeauGetErr(void);
+DRAPEAUDEF bool drapeauIsHelp(void);
 DRAPEAUDEF void drapeauPrintHelp(FILE* fp);
 
-// clang-format off
+DRAPEAUDEF bool* drapeauSubcmd(const char* subcmd_name, const char* desc);
+
+DRAPEAUDEF const char** drapeauMainArg(const char* name, const char* desc, const char* subcmd);
+
 #define DRAPEAU_TYPES(T)                                                       \
     T(Bool, bool, boolean, FLAG_TYPE_BOOL)                                     \
     T(I8, int8_t, i8, FLAG_TYPE_I8)                                            \
@@ -70,21 +105,18 @@ DRAPEAUDEF void drapeauPrintHelp(FILE* fp);
     T(U32, uint32_t, u32, FLAG_TYPE_U32)                                       \
     T(U64, uint64_t, u64, FLAG_TYPE_U64)                                       \
     T(Str, const char*, str, FLAG_TYPE_STRING)
-// clang-format on
-
-DRAPEAUDEF bool* drapeauSubcmd(const char* restrict subcmd_name,
-                               const char* restrict desc);
+    // clang-format on
 
 #define T(_name, _type, _foo1, _foo2)                                          \
-    DRAPEAUDEF _type* drapeau##_name(const char* restrict flag_name,           \
-                                     _type dfault, const char* restrict desc,  \
-                                     const char* restrict subcmd);
-DRAPEAU_TYPES(T)
+    DRAPEAUDEF _type* drapeau##_name(const char* flag_name, char short_name,   \
+                                     _type dfault, const char* desc,           \
+                                     const char* subcmd);
+    DRAPEAU_TYPES(T)
 #undef T
 
-// #ifdef __cplusplus
-// }
-// #endif
+#ifdef __cplusplus
+}
+#endif
 #endif // DRAPEAU_LIBRARY_H_
 
 /************************/
@@ -92,11 +124,19 @@ DRAPEAU_TYPES(T)
 /************************/
 #ifdef DRAPEAU_IMPL
 
+#ifdef __cplusplus
+#include <cassert>
+#include <cerrno>
+#include <climits>
+#include <cstdlib>
+#include <cstring>
+#else
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#endif // __cplusplus
 
 // A Flag and a Subcmd struct definitions
 typedef enum
@@ -114,7 +154,8 @@ typedef enum
     FLAG_TYPE_STRING,
 } FlagType;
 
-typedef union {
+typedef union
+{
     bool boolean;
     int8_t i8;
     int16_t i16;
@@ -130,6 +171,7 @@ typedef union {
 typedef struct
 {
     const char* name;
+    char short_name;
     FlagType type;
     FlagKind kind;
     FlagKind dfault;
@@ -140,11 +182,24 @@ typedef struct
 #define FLAG_CAPACITY 256
 #endif // FLAG_CAPACITY
 
+typedef struct
+{
+    const char* name;
+    const char* value;
+    const char* desc;
+} MainArg;
+
+#ifndef MAIN_ARGS_CAPACITY
+#define MAIN_ARGS_CAPACITY 10
+#endif // MAIN_ARGS_CAPACITY
+
 typedef struct Subcmd
 {
     const char* name;
     const char* desc;
     bool is_activate;
+    MainArg main_args[MAIN_ARGS_CAPACITY];
+    size_t main_args_len;
     Flag flags[FLAG_CAPACITY];
     size_t flags_len;
 } Subcmd;
@@ -153,6 +208,7 @@ typedef struct Subcmd
 #define SUBCOMMAND_CAPACITY 64
 #endif // SUBCOMMAND_CAPACITY
 
+// static members
 static const char* main_prog_name = NULL;
 static const char* main_prog_desc = NULL;
 static Subcmd* activated_subcmd = NULL;
@@ -160,19 +216,30 @@ static Subcmd* activated_subcmd = NULL;
 static Subcmd subcommands[SUBCOMMAND_CAPACITY];
 static size_t subcommands_len = 0;
 
+static MainArg main_main_args[MAIN_ARGS_CAPACITY];
+static size_t main_main_args_len = 0;
+
 static Flag main_flags[FLAG_CAPACITY];
 static size_t main_flags_len = 0;
 
-// Errorkinds
+static bool* help_cmd[SUBCOMMAND_CAPACITY + 1];
+static size_t help_cmd_len = 0;
+
+// Error kinds
 typedef enum DrapeauErrKind
 {
     DRAPEAU_ERR_KIND_OK = 0,
     DRAPEAU_ERR_KIND_SUBCOMMAND_FIND,
     DRAPEAU_ERR_KIND_FLAG_FIND,
+    DRAPEAU_ERR_KIND_MAIN_ARG_FIND,
     DRAPEAU_ERR_KIND_INAVLID_NUMBER,
+    DRAPEAU_ERR_KIND_LONG_FLAG_WITH_SHORT_FLAG,
+    DRAPEAU_INTERNAL_ERROR,
 } DrapeauErrKind;
 
-static DrapeauErrKind drapeau_err = 0;
+static DrapeauErrKind drapeau_err = (DrapeauErrKind)0;
+static char internal_err_msg[201];
+static const char* err_msg_detail = NULL;
 
 // A container of subcommand names (with a hashmap)
 // This hashmap made of fnv1a hash algorithm
@@ -191,6 +258,7 @@ static HashBox hash_map[DRAPEAU_HASHMAP_CAPACITY];
 /* Static Function Signatures */
 /******************************/
 static size_t drapeauHash(const char* letter);
+static MainArg* drapeauGetMainArg(const char* subcmd);
 static Flag* drapeauGetFlag(const char* subcmd);
 static bool findSubcmdPosition(size_t* output, const char* subcmd_name);
 static void freeNextHashBox(HashBox* hashbox);
@@ -198,11 +266,15 @@ static void freeNextHashBox(HashBox* hashbox);
 /************************************/
 /* Implementation of Main Functions */
 /************************************/
-void drapeauStart(const char* restrict name, const char* restrict desc)
+void drapeauStart(const char* name, const char* desc)
 {
     main_prog_name = name;
     main_prog_desc = desc;
     memset(hash_map, 0, sizeof(HashBox) * DRAPEAU_HASHMAP_CAPACITY);
+    memset(subcommands, 0, sizeof(Subcmd) * SUBCOMMAND_CAPACITY);
+
+    help_cmd[help_cmd_len++] =
+        drapeauBool("help", NO_SHORT, false, "Print this help message", NULL);
 }
 
 void drapeauClose(void)
@@ -211,6 +283,18 @@ void drapeauClose(void)
     {
         freeNextHashBox(&hash_map[i]);
     }
+}
+
+bool drapeauIsHelp(void)
+{
+    bool output = false;
+
+    for (size_t i = 0; i < help_cmd_len; ++i)
+    {
+        output |= *help_cmd[i];
+    }
+
+    return output;
 }
 
 void drapeauPrintHelp(FILE* fp)
@@ -230,38 +314,88 @@ void drapeauPrintHelp(FILE* fp)
 
     if (activated_subcmd != NULL)
     {
-        fprintf(fp, "Usage: %s %s [FLAGS]\n\n", main_prog_name,
+        fprintf(fp, "Usage: %s %s [FLAGS] [ARGS]\n\n", main_prog_name,
                 activated_subcmd->name);
-        fprintf(fp, "Options:\n");
 
+        fprintf(fp, "Args:\n");
+        for (size_t i = 0; i < activated_subcmd->main_args_len; ++i)
+        {
+            tmp = strlen(activated_subcmd->main_args[i].name);
+            name_len = name_len > tmp ? name_len : tmp;
+        }
+        for (size_t i = 0; i < activated_subcmd->main_args_len; ++i)
+        {
+            fprintf(fp, "     %*s%s\n", -(int)name_len - 4,
+                    activated_subcmd->main_args[i].name,
+                    activated_subcmd->main_args[i].desc);
+        }
+
+        fprintf(fp, "Options:\n");
         for (size_t i = 0; i < activated_subcmd->flags_len; ++i)
         {
             tmp = strlen(activated_subcmd->flags[i].name);
             name_len = name_len > tmp ? name_len : tmp;
         }
-
         for (size_t i = 0; i < activated_subcmd->flags_len; ++i)
         {
-            fprintf(fp, "    -%*s%s\n", -(int)name_len - 4,
-                    activated_subcmd->flags[i].name,
-                    activated_subcmd->flags[i].desc);
+            // TODO: make a case that has both long and short flags
+            if (strcmp(activated_subcmd->flags[i].name, NO_LONG) != 0)
+            {
+                fprintf(fp, "    --%*s%s\n", -(int)name_len - 4,
+                        activated_subcmd->flags[i].name,
+                        activated_subcmd->flags[i].desc);
+            }
+            else
+            {
+                fprintf(fp, "    -%*c%s\n", -(int)name_len - 4,
+                        activated_subcmd->flags[i].short_name,
+                        activated_subcmd->flags[i].desc);
+            }
         }
     }
     else
     {
-        fprintf(fp, "Usage: %s [SUBCOMMANDS] [FLAGS]\n\n", main_prog_name);
-        fprintf(fp, "Options:\n");
+        if (subcommands_len > 0)
+        {
+            fprintf(fp, "Usage: %s [SUBCOMMANDS] [FLAGS] [ARGS]\n\n",
+                    main_prog_name);
+        }
+        else
+        {
+            fprintf(fp, "Usage: %s [FLAGS] [ARGS]\n\n", main_prog_name);
+        }
 
+        fprintf(fp, "Args:\n");
+        for (size_t i = 0; i < main_main_args_len; ++i)
+        {
+            tmp = strlen(main_main_args[i].name);
+            name_len = name_len > tmp ? name_len : tmp;
+        }
+        for (size_t i = 0; i < main_main_args_len; ++i)
+        {
+            fprintf(fp, "     %*s%s\n", -(int)name_len - 4,
+                    main_main_args[i].name, main_main_args[i].desc);
+        }
+
+        fprintf(fp, "Options:\n");
         for (size_t i = 0; i < main_flags_len; ++i)
         {
             tmp = strlen(main_flags[i].name);
             name_len = name_len > tmp ? name_len : tmp;
         }
-
         for (size_t i = 0; i < main_flags_len; ++i)
         {
-            fprintf(fp, "    -%*s%s\n", -(int)name_len - 4, main_flags[i].name,
-                    main_flags[i].desc);
+            // TODO: make a case that has both long and short flags
+            if (strcmp(main_flags[i].name, NO_LONG) != 0)
+            {
+                fprintf(fp, "    --%*s%s\n", -(int)name_len - 4,
+                        main_flags[i].name, main_flags[i].desc);
+            }
+            else
+            {
+                fprintf(fp, "    -%*c%s\n", -(int)name_len - 4,
+                        main_flags[i].short_name, main_flags[i].desc);
+            }
         }
 
         if (subcommands_len > 0)
@@ -273,7 +407,6 @@ void drapeauPrintHelp(FILE* fp)
                 tmp = strlen(subcommands[i].name);
                 name_len = name_len > tmp ? name_len : tmp;
             }
-
             for (size_t i = 0; i < subcommands_len; ++i)
             {
                 fprintf(fp, "    %*s%s\n", -(int)name_len - 4,
@@ -283,11 +416,11 @@ void drapeauPrintHelp(FILE* fp)
     }
 }
 
-// TODO: drapeau only thinks a given string is a flag if it has only one '-'
-// letter. For example, -v, -h and -version are considered as a flag, but
-// --version, --help are not.
-void drapeauParse(int argc, char** argv)
+bool drapeauParse(int argc, char** argv)
 {
+    MainArg* main_args;
+    size_t main_args_len;
+    size_t current_main_arg = 0;
     Flag* flags;
     size_t flags_len;
     Flag* flag;
@@ -295,25 +428,34 @@ void drapeauParse(int argc, char** argv)
 
     if (argc < 2)
     {
-        return;
+#ifdef NOT_ALLOW_EMPTY_ARGUMENT
+        drapeauPrintHelp(stderr);
+        return false;
+#else
+        return true;
+#endif
     }
 
     // check whether has a subcommand
-    if (argv[arg][0] != '-')
+    if (subcommands_len > 0 && argv[arg][0] != '-')
     {
         size_t pos;
         if (!findSubcmdPosition(&pos, argv[arg++]))
         {
             drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;
-            return;
+            return false;
         }
         activated_subcmd = &subcommands[pos];
         activated_subcmd->is_activate = true;
+        main_args = activated_subcmd->main_args;
+        main_args_len = activated_subcmd->main_args_len;
         flags = activated_subcmd->flags;
         flags_len = activated_subcmd->flags_len;
     }
     else
     {
+        main_args = main_main_args;
+        main_args_len = main_main_args_len;
         flags = main_flags;
         flags_len = main_flags_len;
     }
@@ -326,54 +468,149 @@ void drapeauParse(int argc, char** argv)
             continue;
         }
 
-        if (argv[arg][0] != '-')
-        {
-            drapeau_err = DRAPEAU_ERR_KIND_FLAG_FIND;
-            return;
-        }
-
         size_t j = 0;
-        while (j < flags_len && strcmp(&argv[arg][1], flags[j].name) != 0)
+        if (argv[arg][0] == '-')
         {
-            ++j;
-        }
-
-        if (j >= flags_len)
-        {
-            drapeau_err = DRAPEAU_ERR_KIND_FLAG_FIND;
-            return;
-        }
-
-        flag = &flags[j];
-        ++arg;
-
-        switch (flag->type)
-        {
-        case FLAG_TYPE_BOOL:
-            flag->kind.boolean = true;
-            break;
-
-        case FLAG_TYPE_U64:
-            flag->kind.u64 = strtoull(argv[arg++], NULL, 0);
-            if (errno == EINVAL || errno == ERANGE)
+            if (argv[arg][1] == '-')
             {
-                drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
-                return;
+                if (flags[j].name == NULL)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_FLAG_FIND;
+                    return false;
+                }
+                while (j < flags_len &&
+                       strcmp(&argv[arg][2], flags[j].name) != 0)
+                {
+                    ++j;
+                }
             }
-            break;
+            else
+            {
+                if (strlen(&argv[arg][1]) > 1)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_LONG_FLAG_WITH_SHORT_FLAG;
+                    return false;
+                }
+                while (j < flags_len && argv[arg][1] != flags[j].short_name)
+                {
+                    ++j;
+                }
+            }
 
-        case FLAG_TYPE_STRING:
-            flag->kind.str = argv[arg++];
-            break;
+            if (j >= flags_len)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_FLAG_FIND;
+                return false;
+            }
 
-        default:
-            assert(false && "Unreatchable(drapeauParse)");
-            return;
+            flag = &flags[j];
+            ++arg;
+
+            switch (flag->type)
+            {
+            case FLAG_TYPE_BOOL:
+                flag->kind.boolean = true;
+                break;
+
+            case FLAG_TYPE_I8:
+                flag->kind.i8 = (int8_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_I16:
+                flag->kind.i16 = (int16_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_I32:
+                flag->kind.i32 = (int32_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_I64:
+                flag->kind.i64 = (int64_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_U8:
+                flag->kind.u8 = (uint8_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_U16:
+                flag->kind.u16 = (uint16_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_U32:
+                flag->kind.u32 = (uint32_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_U64:
+                flag->kind.u64 = (uint64_t)strtoull(argv[arg++], NULL, 0);
+                if (errno == EINVAL || errno == ERANGE)
+                {
+                    drapeau_err = DRAPEAU_ERR_KIND_INAVLID_NUMBER;
+                    return false;
+                }
+                break;
+
+            case FLAG_TYPE_STRING:
+                flag->kind.str = argv[arg++];
+                break;
+
+            default:
+                assert(false && "Unreatchable(drapeauParse)");
+                return false;
+            }
+        }
+        else
+        {
+            if (current_main_arg >= main_args_len)
+            {
+                drapeau_err = DRAPEAU_ERR_KIND_MAIN_ARG_FIND;
+                return false;
+            }
+
+            main_args[current_main_arg].value = argv[arg];
+            ++current_main_arg;
+            ++arg;
         }
     }
+
+    return true;
 }
 
-bool* drapeauSubcmd(const char* restrict subcmd_name, const char* restrict desc)
+bool* drapeauSubcmd(const char* subcmd_name, const char* desc)
 {
     assert(subcommands_len < SUBCOMMAND_CAPACITY);
 
@@ -396,7 +633,7 @@ bool* drapeauSubcmd(const char* restrict subcmd_name, const char* restrict desc)
 
     hash_box->name = subcmd_name;
     hash_box->where = subcommands_len;
-    hash_box->next = malloc(sizeof(HashBox));
+    hash_box->next = (HashBox*)malloc(sizeof(HashBox));
     hash_box->next->next = NULL;
 
     subcmd = &subcommands[subcommands_len++];
@@ -404,24 +641,51 @@ bool* drapeauSubcmd(const char* restrict subcmd_name, const char* restrict desc)
     subcmd->name = subcmd_name;
     subcmd->desc = desc;
     subcmd->is_activate = false;
+    subcmd->main_args_len = 0;
     subcmd->flags_len = 0;
+
+    help_cmd[help_cmd_len++] = drapeauBool(
+        "help", NO_SHORT, false, "Print this help message", subcmd_name);
 
     return &subcmd->is_activate;
 }
 
+const char** drapeauMainArg(const char* name, const char* desc,
+                            const char* subcmd)
+{
+    MainArg* main_arg = drapeauGetMainArg(subcmd);
+    if (main_arg == NULL)
+    {
+        if (err_msg_detail == NULL)
+        {
+            drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;
+        }
+        return NULL;
+    }
+
+    main_arg->name = name;
+    main_arg->value = NULL;
+    main_arg->desc = desc;
+
+    return &main_arg->value;
+}
+
 #define T(_name, _type, _arg, _flag_type)                                      \
-    _type* drapeau##_name(const char* restrict flag_name, _type dfault,        \
-                          const char* restrict desc,                           \
-                          const char* restrict subcmd)                         \
+    _type* drapeau##_name(const char* flag_name, char short_name,              \
+                          _type dfault, const char* desc, const char* subcmd)  \
     {                                                                          \
         Flag* flag = drapeauGetFlag(subcmd);                                   \
         if (flag == NULL)                                                      \
         {                                                                      \
-            drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;                    \
+            if (err_msg_detail == NULL)                                        \
+            {                                                                  \
+                drapeau_err = DRAPEAU_ERR_KIND_SUBCOMMAND_FIND;                \
+            }                                                                  \
             return NULL;                                                       \
         }                                                                      \
                                                                                \
         flag->name = flag_name;                                                \
+        flag->short_name = short_name;                                         \
         flag->type = _flag_type;                                               \
         flag->kind._arg = dfault;                                              \
         flag->dfault._arg = dfault;                                            \
@@ -435,7 +699,7 @@ DRAPEAU_TYPES(T)
 #undef T
 
 // TODO: implement better and clean error printing message
-const char* drapeauPrintErr(void)
+const char* drapeauGetErr(void)
 {
     switch (drapeau_err)
     {
@@ -448,11 +712,23 @@ const char* drapeauPrintErr(void)
     case DRAPEAU_ERR_KIND_FLAG_FIND:
         return "Cannot find an appropriate flag";
 
+    case DRAPEAU_ERR_KIND_MAIN_ARG_FIND:
+        return "Cannot find an appropriate main argument";
+
     case DRAPEAU_ERR_KIND_INAVLID_NUMBER:
         return "Invalid number or overflowed number is given";
 
+    case DRAPEAU_ERR_KIND_LONG_FLAG_WITH_SHORT_FLAG:
+        return "Long flags must start with `--`, not `-`";
+
+    case DRAPEAU_INTERNAL_ERROR:
+        snprintf(internal_err_msg, 200, "Internal error was found at %s",
+                 err_msg_detail);
+        internal_err_msg[200] = '\0';
+        return internal_err_msg;
+
     default:
-        assert(false && "Unreatchable (drapeauPrintErr)");
+        assert(false && "Unreatchable (drapeauGetErr)");
         return "";
     }
 }
@@ -460,11 +736,37 @@ const char* drapeauPrintErr(void)
 /************************************/
 /* Static Functions Implementations */
 /************************************/
-static Flag* drapeauGetFlag(const char* restrict subcmd)
+static MainArg* drapeauGetMainArg(const char* subcmd)
+{
+    MainArg* main_arg;
+
+    if (subcmd != NULL)
+    {
+        size_t pos;
+        if (!findSubcmdPosition(&pos, subcmd))
+        {
+            return NULL;
+        }
+
+        size_t* idx = &subcommands[pos].main_args_len;
+        assert(*idx < MAIN_ARGS_CAPACITY);
+
+        main_arg = &subcommands[pos].main_args[(*idx)++];
+    }
+    else
+    {
+        assert(main_main_args_len < MAIN_ARGS_CAPACITY);
+        main_arg = &main_main_args[main_main_args_len++];
+    }
+
+    return main_arg;
+}
+
+static Flag* drapeauGetFlag(const char* subcmd)
 {
     Flag* flag;
 
-    if (subcmd != NULL)
+    if (subcmd != NO_SUBCMD)
     {
         size_t pos;
         if (!findSubcmdPosition(&pos, subcmd))

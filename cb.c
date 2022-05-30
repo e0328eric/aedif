@@ -55,7 +55,7 @@ const char* lib_dirs[] = {
 };
 
 const char* includes[] = {
-    "-Ilib/lua/src/",
+    "-Ilib/lua/",
     "-Ilib",
     NULL,
 };
@@ -67,16 +67,16 @@ int main(int argc, char** argv)
     // parse commandline
     drapeauStart("cb", "A build script for aedif project written in C");
 
-    bool* is_clean = drapeauSubcmd("c", "Clean the build datas");
-    bool* is_build = drapeauSubcmd("b", "Build aedif");
-    bool* is_install = drapeauSubcmd("i", "Install aedif");
-
-    bool* help_msg = drapeauBool("help", false, "help message", NULL);
+    bool* is_clean = drapeauSubcmd("clean", "Clean the build datas");
+    bool* clean_self =
+        drapeauBool("self", NO_SHORT, false, "remove cb itself", "clean");
+    bool* is_build = drapeauSubcmd("build", "Build aedif");
+    bool* is_install = drapeauSubcmd("install", "Install aedif");
 
     drapeauParse(argc, argv);
 
     const char* err;
-    if ((err = drapeauPrintErr()) != NULL)
+    if ((err = drapeauGetErr()) != NULL)
     {
         fprintf(stderr, "%s\n", err);
         drapeauClose();
@@ -85,7 +85,7 @@ int main(int argc, char** argv)
 
     drapeauClose();
 
-    if (*help_msg)
+    if (drapeauIsHelp())
     {
         drapeauPrintHelp(stdout);
         return 0;
@@ -94,8 +94,12 @@ int main(int argc, char** argv)
     // if is_clean, delete build directory
     if (*is_clean)
     {
-        system("make clean -C ./lib/lua-5.4.3/");
+        system("make clean -C ./lib/lua/");
         system("rm -r ./build");
+        if (*clean_self)
+        {
+            system("rm ./cb");
+        }
     }
     else if (*is_build || *is_install)
     {
@@ -106,8 +110,8 @@ int main(int argc, char** argv)
         system("mkdir -p ./build/lib/");
         system("mkdir -p ./build/bin/");
 
-        system("make -C ./lib/lua-5.4.3/");
-        system("mv ./lib/lua-5.4.3/src/liblua.a ./build/lib");
+        system("make -C ./lib/lua/");
+        system("mv ./lib/lua/liblua.a ./build/lib");
 
         String* cmdline = mkString(C_COMPILER " " C_STD " " C_OPTIONS " ");
         for (size_t i = 0; includes[i]; ++i)

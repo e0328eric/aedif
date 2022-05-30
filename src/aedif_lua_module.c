@@ -39,6 +39,9 @@
 // we made a global variable.
 const char** BUILD_DIR = NULL;
 
+// same for target name (heap allocated)
+char* TARGET_NAME = NULL;
+
 // Same manner for IS_CLEAN
 extern bool* IS_CLEAN;
 
@@ -155,6 +158,12 @@ static int lua_Compile(lua_State* L)
         lua_error(L);
         return 0;
     }
+
+    // copy the target name
+    size_t targetLen = strlen(bdata.targetName);
+    TARGET_NAME = malloc(targetLen + 1);
+    memcpy(TARGET_NAME, bdata.targetName, targetLen);
+    TARGET_NAME[targetLen] = '\0';
 
     /******************************/
     /* Actual Build Entire System */

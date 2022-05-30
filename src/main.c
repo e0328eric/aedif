@@ -33,6 +33,7 @@
 // Global variables
 bool* IS_CLEAN;
 extern const char** BUILD_DIR;
+extern char* TARGET_NAME; // heap allocated
 
 static bool checkIsValidDirectory(const char* dir);
 static void mkValidDirectoy(const char* dir);
@@ -43,38 +44,38 @@ int main(int argc, char** argv)
     drapeauStart("aedif", "A tiny C/C++ building tool");
 
     bool* is_build = drapeauSubcmd("build", "build the project");
-    bool* build_help =
-        drapeauBool("help", false, "show the help message", "build");
     // A global variable
-    BUILD_DIR =
-        drapeauStr("dir", "./build/", "sets the directory to build", "build");
-    bool* no_make_BUILD_DIR =
-        drapeauBool("nomake", false, "no to make build directories", "build");
+    BUILD_DIR = drapeauStr("dir", NO_SHORT, "./build/",
+                           "sets the directory to build", "build");
+    bool* no_make_BUILD_DIR = drapeauBool(
+        "nomake", NO_SHORT, false, "no to make build directories", "build");
 
     // A global variable
     IS_CLEAN = drapeauSubcmd("clean", "clean buildings");
-    bool* clean_help =
-        drapeauBool("help", false, "show the help message", "clean");
-    const char** clean_dir =
-        drapeauStr("dir", "./build/", "sets the directory to clean", "clean");
-    bool* clean_force =
-        drapeauBool("force", false, "do not ask the deletion warning", "clean");
-    bool* read_lua_file = drapeauBool(
-        "readlua", false, "Read aedif.lua to run custom clean build", "clean");
+    const char** clean_dir = drapeauStr("dir", NO_SHORT, "./build/",
+                                        "sets the directory to clean", "clean");
+    bool* clean_force = drapeauBool("force", 'f', false,
+                                    "do not ask the deletion warning", "clean");
+    bool* read_lua_file =
+        drapeauBool("readlua", NO_SHORT, false,
+                    "Read aedif.lua to run custom clean build", "clean");
 
     bool* is_install = drapeauSubcmd("install", "install the project");
-    bool* install_help =
-        drapeauBool("help", false, "show the help message", "install");
     const char** install_dir =
-        drapeauStr("dir", "~/.local/bin/",
+        drapeauStr("dir", NO_SHORT, "~/.local/bin/",
                    "the directory to install the project", "install");
 
-    bool* main_help = drapeauBool("help", false, "show the help message", NULL);
+    bool* is_run = drapeauSubcmd("run", "run the program");
+    const char** run_build = drapeauStr("dir", NO_SHORT, "./build/",
+                                        "sets the directory to build", "run");
+    bool* no_make_BUILD_DIR_run = drapeauBool(
+        "nomake", NO_SHORT, false, "no to make build directories", NULL);
+
     // if any other arguments are given, then sets BUILD_DIR = main_build
-    const char** main_build =
-        drapeauStr("dir", "./build/", "sets the directory to build", NULL);
-    bool* no_make_BUILD_DIR_main =
-        drapeauBool("nomake", false, "no to make build directories", NULL);
+    const char** main_build = drapeauStr("dir", NO_SHORT, "./build/",
+                                         "sets the directory to build", NULL);
+    bool* no_make_BUILD_DIR_main = drapeauBool(
+        "nomake", NO_SHORT, false, "no to make build directories", NULL);
 
     drapeauParse(argc, argv);
 
@@ -83,21 +84,22 @@ int main(int argc, char** argv)
     if (!*is_build && !*IS_CLEAN && !*is_install)
     {
         *is_build = true;
-        BUILD_DIR = main_build;
-        no_make_BUILD_DIR = no_make_BUILD_DIR_main;
+        BUILD_DIR = *is_run ? run_build : main_build;
+        no_make_BUILD_DIR =
+            *is_run ? no_make_BUILD_DIR_run : no_make_BUILD_DIR_main;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////
 
     const char* err;
-    if ((err = drapeauPrintErr()) != NULL)
+    if ((err = drapeauGetErr()) != NULL)
     {
         fprintf(stderr, "%s\n", err);
         drapeauClose();
         return 1;
     }
 
-    if (*build_help || *clean_help || *install_help || *main_help)
+    if (drapeauIsHelp())
     {
         drapeauPrintHelp(stdout);
         drapeauClose();
@@ -115,8 +117,8 @@ int main(int argc, char** argv)
     }
     fclose(aedif_lua_file);
 
-    // If build or install subcommand is given, make ./build file
-    if (*is_build || *is_install)
+    // If build, run or install subcommand is given, make ./build file
+    if (*is_build || *is_run || *is_install)
     {
         DIR* check_build_exists = opendir(*BUILD_DIR);
         if (check_build_exists != NULL)
@@ -199,6 +201,17 @@ int main(int argc, char** argv)
         freeString(cmdline);
         drapeauClose();
         return 0;
+    }
+
+    if (*is_run)
+    {
+        printf("\n\n    \x1b[1m\x1b[4mRunning %s\x1b[0m\n", TARGET_NAME);
+        String* cmdline = mkString(*BUILD_DIR);
+        appendStr(cmdline, "/bin/");
+        appendStr(cmdline, TARGET_NAME);
+        system(getStr(cmdline));
+        freeString(cmdline);
+        free(TARGET_NAME);
     }
 
     if (*is_install)

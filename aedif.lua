@@ -6,11 +6,11 @@ WARNINGS = { "all", "extra", "pedantic", "conversion" }
 ERRORS = { "return-type" }
 
 if aedif.isclean then
-    aedif.execute("make clean -C ./lib/lua-5.4.3/")
+    aedif.execute("make clean -C ./lib/lua/")
 else
     -- Compile liblua
-    aedif.execute("make -C ./lib/lua-5.4.3/")
-    aedif.execute("mv ./lib/lua-5.4.3/src/liblua.a ./build/lib")
+    aedif.execute("make -C ./lib/lua/")
+    aedif.execute("mv ./lib/lua/liblua.a ./build/lib")
 
     -- Compile libyaml
     --aedif.execute("cd ./lib/libyaml/")
@@ -36,7 +36,7 @@ else
     end
     lib_dir = "build/lib"
     includes = {
-      "lib/lua-5.4.3/src",
+      "lib/lua/",
       "lib",
     }
 

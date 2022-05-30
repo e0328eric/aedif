@@ -15,14 +15,14 @@ Just type this:
 
 ```console
 $ cc cb.c -o cb
-$ ./cb b
+$ ./cb build
 ```
 
 or if you install this, run
 
 ```console
 $ cc cb.c -o cb
-$ ./cb i
+$ ./cb install
 ```
 
 Then the `aedif` binary will be installed at `~/.local/bin`.

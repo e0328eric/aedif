@@ -205,6 +205,12 @@ int main(int argc, char** argv)
 
     if (*is_run)
     {
+        if (!TARGET_NAME)
+        {
+            printf(AEDIF_ERROR_PREFIX "no target name was given. exit.\n");
+            drapeauClose();
+            return 1;
+        }
         printf("\n\n    \x1b[1m\x1b[4mRunning %s\x1b[0m\n", TARGET_NAME);
         String* cmdline = mkString(*BUILD_DIR);
         appendStr(cmdline, "/bin/");

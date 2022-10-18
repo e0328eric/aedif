@@ -35,27 +35,27 @@ static void compile_srcs(bool is_lib, const char* target_name,
                          const char** lib_dirs, const char* where);
 
 const char* lua_srcs[] = {
-    "./lib/lua-5.4.3/src/lapi.c",     "./lib/lua-5.4.3/src/lauxlib.c",
-    "./lib/lua-5.4.3/src/lbaselib.c", "./lib/lua-5.4.3/src/lcode.c",
-    "./lib/lua-5.4.3/src/lcorolib.c", "./lib/lua-5.4.3/src/lctype.c",
-    "./lib/lua-5.4.3/src/ldblib.c",   "./lib/lua-5.4.3/src/ldebug.c",
-    "./lib/lua-5.4.3/src/ldo.c",      "./lib/lua-5.4.3/src/ldump.c",
-    "./lib/lua-5.4.3/src/lfunc.c",    "./lib/lua-5.4.3/src/lgc.c",
-    "./lib/lua-5.4.3/src/linit.c",    "./lib/lua-5.4.3/src/liolib.c",
-    "./lib/lua-5.4.3/src/llex.c",     "./lib/lua-5.4.3/src/lmathlib.c",
-    "./lib/lua-5.4.3/src/lmem.c",     "./lib/lua-5.4.3/src/loadlib.c",
-    "./lib/lua-5.4.3/src/lobject.c",  "./lib/lua-5.4.3/src/lopcodes.c",
-    "./lib/lua-5.4.3/src/loslib.c",   "./lib/lua-5.4.3/src/lparser.c",
-    "./lib/lua-5.4.3/src/lstate.c",   "./lib/lua-5.4.3/src/lstring.c",
-    "./lib/lua-5.4.3/src/lstrlib.c",  "./lib/lua-5.4.3/src/ltable.c",
-    "./lib/lua-5.4.3/src/ltablib.c",  "./lib/lua-5.4.3/src/ltm.c",
-    "./lib/lua-5.4.3/src/lua.c",      "./lib/lua-5.4.3/src/lundump.c",
-    "./lib/lua-5.4.3/src/lutf8lib.c", "./lib/lua-5.4.3/src/lvm.c",
-    "./lib/lua-5.4.3/src/lzio.c",     NULL,
+    "./lib/lua/src/lapi.c",     "./lib/lua/src/lauxlib.c",
+    "./lib/lua/src/lbaselib.c", "./lib/lua/src/lcode.c",
+    "./lib/lua/src/lcorolib.c", "./lib/lua/src/lctype.c",
+    "./lib/lua/src/ldblib.c",   "./lib/lua/src/ldebug.c",
+    "./lib/lua/src/ldo.c",      "./lib/lua/src/ldump.c",
+    "./lib/lua/src/lfunc.c",    "./lib/lua/src/lgc.c",
+    "./lib/lua/src/linit.c",    "./lib/lua/src/liolib.c",
+    "./lib/lua/src/llex.c",     "./lib/lua/src/lmathlib.c",
+    "./lib/lua/src/lmem.c",     "./lib/lua/src/loadlib.c",
+    "./lib/lua/src/lobject.c",  "./lib/lua/src/lopcodes.c",
+    "./lib/lua/src/loslib.c",   "./lib/lua/src/lparser.c",
+    "./lib/lua/src/lstate.c",   "./lib/lua/src/lstring.c",
+    "./lib/lua/src/lstrlib.c",  "./lib/lua/src/ltable.c",
+    "./lib/lua/src/ltablib.c",  "./lib/lua/src/ltm.c",
+    "./lib/lua/src/lua.c",      "./lib/lua/src/lundump.c",
+    "./lib/lua/src/lutf8lib.c", "./lib/lua/src/lvm.c",
+    "./lib/lua/src/lzio.c",     NULL,
 };
 
 const char* lua_includes[] = {
-    "./lib/lua-5.4.3/src/",
+    "./lib/lua/src/",
     NULL,
 };
 
@@ -79,8 +79,8 @@ const char* main_srcs[] = {
 };
 
 const char* main_includes[] = {
-    "./lib/lua-5.4.3/src/", "./lib/",        "./src/",
-    "./src/ffi/",           "./src/ffi/os/", NULL,
+    "./lib/lua/src/", "./lib/",        "./src/",
+    "./src/ffi/",     "./src/ffi/os/", NULL,
 };
 
 #ifdef _WIN32

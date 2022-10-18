@@ -24,8 +24,8 @@
 
 #define DRAPEAU_IMPL
 #define DYN_STRING_IMPL
-#include "./lib/drapeau.h"
-#include "./lib/dynString.h"
+#include "./lib/drapeau/drapeau.h"
+#include "./lib/dynString/dynString.h"
 
 static String* changeExtension(const char* filename, const char* extension,
                                const char* where);
@@ -35,23 +35,23 @@ static void compile_srcs(bool is_lib, const char* target_name,
                          const char** lib_dirs, const char* where);
 
 const char* lua_srcs[] = {
-    "./lib/lua/src/lapi.c",     "./lib/lua/src/lauxlib.c",
-    "./lib/lua/src/lbaselib.c", "./lib/lua/src/lcode.c",
-    "./lib/lua/src/lcorolib.c", "./lib/lua/src/lctype.c",
-    "./lib/lua/src/ldblib.c",   "./lib/lua/src/ldebug.c",
-    "./lib/lua/src/ldo.c",      "./lib/lua/src/ldump.c",
-    "./lib/lua/src/lfunc.c",    "./lib/lua/src/lgc.c",
-    "./lib/lua/src/linit.c",    "./lib/lua/src/liolib.c",
-    "./lib/lua/src/llex.c",     "./lib/lua/src/lmathlib.c",
-    "./lib/lua/src/lmem.c",     "./lib/lua/src/loadlib.c",
-    "./lib/lua/src/lobject.c",  "./lib/lua/src/lopcodes.c",
-    "./lib/lua/src/loslib.c",   "./lib/lua/src/lparser.c",
-    "./lib/lua/src/lstate.c",   "./lib/lua/src/lstring.c",
-    "./lib/lua/src/lstrlib.c",  "./lib/lua/src/ltable.c",
-    "./lib/lua/src/ltablib.c",  "./lib/lua/src/ltm.c",
-    "./lib/lua/src/lua.c",      "./lib/lua/src/lundump.c",
-    "./lib/lua/src/lutf8lib.c", "./lib/lua/src/lvm.c",
-    "./lib/lua/src/lzio.c",     NULL,
+    "./lib/lua/lapi.c",     "./lib/lua/lauxlib.c",
+    "./lib/lua/lbaselib.c", "./lib/lua/lcode.c",
+    "./lib/lua/lcorolib.c", "./lib/lua/lctype.c",
+    "./lib/lua/ldblib.c",   "./lib/lua/ldebug.c",
+    "./lib/lua/ldo.c",      "./lib/lua/ldump.c",
+    "./lib/lua/lfunc.c",    "./lib/lua/lgc.c",
+    "./lib/lua/linit.c",    "./lib/lua/liolib.c",
+    "./lib/lua/llex.c",     "./lib/lua/lmathlib.c",
+    "./lib/lua/lmem.c",     "./lib/lua/loadlib.c",
+    "./lib/lua/lobject.c",  "./lib/lua/lopcodes.c",
+    "./lib/lua/loslib.c",   "./lib/lua/lparser.c",
+    "./lib/lua/lstate.c",   "./lib/lua/lstring.c",
+    "./lib/lua/lstrlib.c",  "./lib/lua/ltable.c",
+    "./lib/lua/ltablib.c",  "./lib/lua/ltm.c",
+    "./lib/lua/lua.c",      "./lib/lua/lundump.c",
+    "./lib/lua/lutf8lib.c", "./lib/lua/lvm.c",
+    "./lib/lua/lzio.c",     NULL,
 };
 
 const char* lua_includes[] = {
@@ -79,8 +79,8 @@ const char* main_srcs[] = {
 };
 
 const char* main_includes[] = {
-    "./lib/lua/src/", "./lib/",        "./src/",
-    "./src/ffi/",     "./src/ffi/os/", NULL,
+    "./lib/lua/", "./lib/drapeau", "./lib/dynString", "./src/",
+    "./src/ffi/", "./src/ffi/os/", NULL,
 };
 
 #ifdef _WIN32
@@ -104,14 +104,11 @@ int main(int argc, char** argv)
     drapeauStart("cb", "A building script written in C");
     bool* is_clean = drapeauSubcmd("c", "clean the built project");
     bool* clean_with_self = drapeauBool(
-        "self", false, "clean the built project and remove itself too", "c");
-    bool* is_clean_help =
-        drapeauBool("help", false, "Show the help message", "c");
+        "self", NO_SHORT, false, "clean the built project and remove itself too", "c");
     bool* is_build = drapeauSubcmd("b", "build the project");
     bool* is_install = drapeauSubcmd("i", "install the project");
-    bool* is_help = drapeauBool("help", false, "Show the help message", NULL);
 
-    if (!drapeauParse(argc, argv, true))
+    if (!drapeauParse(argc, argv))
     {
         fprintf(stderr, "%s\n", drapeauGetErr());
         drapeauClose();
@@ -119,15 +116,16 @@ int main(int argc, char** argv)
     }
     drapeauClose();
 
-    if (*is_help || *is_clean_help)
+    if (drapeauIsHelp())
     {
-        drapeauPrintHelp(stdout);
+        drapeauPrintHelp();
         return 0;
     }
 
     if (!*is_clean && !*is_build && !*is_install)
     {
-        *is_build = true;
+        drapeauPrintHelp();
+        return 0;
     }
 
     if (*is_clean)

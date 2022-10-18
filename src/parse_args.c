@@ -25,6 +25,7 @@ bool* g_no_make_build_dir_main;
 
 int parseArgs(int argc, char** argv)
 {
+#if 0
     // Parse the commandline
     drapeauStart("aedif", "A tiny C/C++ building tool");
 
@@ -83,6 +84,7 @@ int parseArgs(int argc, char** argv)
         drapeauClose();
         return 1;
     }
+#endif
 
     return 0;
 }

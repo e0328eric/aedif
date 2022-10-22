@@ -144,7 +144,14 @@ void buildProject(bool is_lib, const char* target_name,
     String** objs = malloc(sizeof(String*) * (src_len + 1));
     objs[src_len] = NULL;
 
-    appendFmtStr(cmdline, COMPILER " %s ", options);
+    if (options)
+    {
+        appendFmtStr(cmdline, COMPILER " %s ", options);
+    }
+    else
+    {
+        appendStr(cmdline, COMPILER " ");
+    }
 
     if (includes)
     {

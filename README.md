@@ -3,6 +3,9 @@
 It is a C/C++ building tool like make or cmake but has a minimal features.
 Since this is the toy project, it is not recommended to use in real production.
 
+<<<<<<< HEAD
+It is a header only library.
+=======
 # Building aedif
 
 It can be built in both python script and aedif itself. However, in this moment, it is checked to run only at macos and linux (especially, Arch Linux).
@@ -41,3 +44,4 @@ $ aedif
 ```
 
 Then executables are in `./build/bin`.
+>>>>>>> main

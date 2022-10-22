@@ -130,14 +130,16 @@ void buildProject(bool is_lib, const char* target_name,
 
     appendFmtStr(cmdline, COMPILER " %s ", options);
 
-    for (; *includes; ++includes)
+    if (includes)
     {
+        for (; *includes; ++includes)
+        {
 #ifdef _WIN32
-        appendStr(cmdline, "/I");
+            appendFmtStr(cmdline, "/I%s ", *includes);
 #else
-        appendStr(cmdline, "-I");
+            appendFmtStr(cmdline, "-I%s ", *includes);
 #endif
-        appendFmtStr(cmdline, "%s ", *includes);
+        }
     }
 
 #ifdef _WIN32
@@ -190,21 +192,30 @@ void buildProject(bool is_lib, const char* target_name,
             appendChar(cmdline, ' ');
         }
 #ifdef _WIN32
-        for (; *libs; ++libs)
+        if (libs)
         {
-            appendStr(cmdline, *libs);
-            appendChar(cmdline, ' ');
+            for (; *libs; ++libs)
+            {
+                appendStr(cmdline, *libs);
+                appendChar(cmdline, ' ');
+            }
         }
         appendFmtStr(cmdline, " /Fe:./build/bin/%s.exe ", target_name);
 #else
         appendFmtStr(cmdline, " -o ./build/bin/%s ", target_name);
-        for (; *libs; ++libs)
+        if (libs)
         {
-            appendFmtStr(cmdline, "-l %s ", *libs);
+            for (; *libs; ++libs)
+            {
+                appendFmtStr(cmdline, "-l %s ", *libs);
+            }
         }
-        for (; *lib_dirs; ++lib_dirs)
+        if (lib_dirs)
         {
-            appendFmtStr(cmdline, "-L %s ", *lib_dirs);
+            for (; *lib_dirs; ++lib_dirs)
+            {
+                appendFmtStr(cmdline, "-L %s ", *lib_dirs);
+            }
         }
 #endif
         printf(DYNS_FMT "\n", DYNS_ARG(cmdline));

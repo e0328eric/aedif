@@ -3,13 +3,28 @@
 
 #include <stdbool.h>
 
+#define LANGUAGE_C   1
+#define LANGUAGE_CXX 2
+
+#ifndef LANGUAGE
+#define LANGUAGE LANGUAGE_C
+#endif
+
 #ifndef COMPILER
 #   if defined(_WIN32)
 #       define COMPILER "cl"
 #   elif defined(__APPLE__)
-#       define COMPILER "clang"
+#       if LANGUAGE == LANGUAGE_CXX
+#           define COMPILER "clang++"
+#       else
+#           define COMPILER "clang"
+#       endif
 #   else
-#       define COMPILER "gcc"
+#       if LANGUAGE == LANGUAGE_CXX
+#           define COMPILER "g++"
+#       else
+#           define COMPILER "gcc"
+#       endif
 #   endif
 #endif // COMPILER
 
@@ -55,6 +70,7 @@ void freeString(String* pString);
 void appendChar(String* pString, char chr);
 void appendStr(String* pString, const char* str);
 void appendFmtStr(struct String* pString, const char* format, ...);
+void appendCharBack(String* pString, char chr);
 void appendStrBack(String* pString, const char* str);
 void concatString(String* dst, const String* src);
 void concatFreeString(String* dst, String* src);
@@ -243,8 +259,8 @@ static String* changeExtension(const char* filename, const char* extension,
 
     if ((location = findCharReverse(output, '/')) < 0)
     {
-        freeString(output);
-        return NULL;
+        appendCharBack(output, '/');
+        location = 0;
     }
 
     clearStringBefore(output, location);
@@ -348,6 +364,18 @@ void appendFmtStr(struct String* pString, const char* format, ...)
 
 	// Since vasprintf allocates memories, we must free it
 	free(formattedString);
+}
+
+void appendCharBack(struct String* pString, char chr)
+{
+	if (pString->len + 1 >= pString->capacity)
+	{
+		pString->capacity = (pString->capacity + 1) << 1;
+		pString->inner = realloc(pString->inner, pString->capacity);
+	}
+
+	memmove(pString->inner + 1, pString->inner, ++pString->len);
+	pString->inner[0] = chr;
 }
 
 void appendStrBack(struct String* pString, const char* str)

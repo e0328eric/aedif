@@ -1,0 +1,6 @@
+/cb
+/build
+/lib/lua/src/*.o
+/lib/lua/src/lua
+/lib/lua/src/luac
+/.ccls-cache

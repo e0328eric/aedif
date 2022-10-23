@@ -230,14 +230,14 @@ void buildProject(bool is_lib, const char* target_name,
         {
             for (; *libs; ++libs)
             {
-                appendFmtStr(cmdline, "-l %s ", *libs);
+                appendFmtStr(cmdline, "-l%s ", *libs);
             }
         }
         if (lib_dirs)
         {
             for (; *lib_dirs; ++lib_dirs)
             {
-                appendFmtStr(cmdline, "-L %s ", *lib_dirs);
+                appendFmtStr(cmdline, "-L%s ", *lib_dirs);
             }
         }
 #endif

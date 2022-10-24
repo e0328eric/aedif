@@ -39,8 +39,8 @@
 void makeDir(const char* dir_name);
 void cleanBuild(void);
 void buildProject(bool is_lib, const char* target_name,
-             const char* options, const char** srcs,
-             const char** includes, const char** libs,
+             const char* comp_options, const char* link_options,
+             const char** srcs, const char** includes, const char** libs,
              const char** lib_dirs, const char* where);
 
 #ifdef AEDIF_IMPLEMENTATION
@@ -110,8 +110,8 @@ void cleanBuild(void)
 }
 
 void buildProject(bool is_lib, const char* target_name,
-             const char* options, const char** srcs,
-             const char** includes, const char** libs,
+             const char* comp_options, const char* link_options,
+             const char** srcs, const char** includes, const char** libs,
              const char** lib_dirs, const char* where)
 {
     String* cmdline = mkString(NULL);
@@ -144,9 +144,9 @@ void buildProject(bool is_lib, const char* target_name,
     String** objs = malloc(sizeof(String*) * (src_len + 1));
     objs[src_len] = NULL;
 
-    if (options)
+    if (comp_options)
     {
-        appendFmtStr(cmdline, COMPILER " %s ", options);
+        appendFmtStr(cmdline, COMPILER " %s ", comp_options);
     }
     else
     {
@@ -208,7 +208,14 @@ void buildProject(bool is_lib, const char* target_name,
     }
     else
     {
-        appendStr(cmdline, COMPILER " ");
+        if (link_options)
+        {
+            appendFmtStr(cmdline, COMPILER " %s ", link_options);
+        }
+        else
+        {
+            appendStr(cmdline, COMPILER " ");
+        }
         for (size_t i = 0; objs[i]; ++i)
         {
             concatFreeString(cmdline, objs[i]);
@@ -223,9 +230,9 @@ void buildProject(bool is_lib, const char* target_name,
                 appendChar(cmdline, ' ');
             }
         }
-        appendFmtStr(cmdline, " /Fe:./build/bin/%s.exe ", target_name);
+        appendFmtStr(cmdline, "/Fe:./build/bin/%s.exe ", target_name);
 #else
-        appendFmtStr(cmdline, " -o ./build/bin/%s ", target_name);
+        appendFmtStr(cmdline, "-o ./build/bin/%s ", target_name);
         if (libs)
         {
             for (; *libs; ++libs)

@@ -36,9 +36,26 @@
 #   endif
 #endif // LINKER
 
+
 void makeDir(const char* dir_name);
 void cleanBuild(void);
-void buildProject(bool is_lib, const char* target_name,
+
+#define BUILD_BASIC_EXE(_target_name, _comp_options, _srcs, _includes) \
+    __buildProject(false, _target_name, _comp_options, NULL, \
+                   _srcs, _includes, NULL, NULL, NULL)
+#define BUILD_BASIC_LIB(_target_name, _comp_options, _srcs, _includes) \
+    __buildProject(true, _target_name, _comp_options, NULL, \
+                   _srcs, _includes, NULL, NULL, NULL)
+#define BUILD_EXE(_target_name, _comp_options, _link_options, _srcs, _includes, \
+                  _libs, _libs_dirs, _where) \
+    __buildProject(true, _target_name, _comp_options, _link_options, _srcs, \
+                   _includes, _libs, _libs_dirs, _where)
+#define BUILD_LIB(_target_name, _comp_options, _link_options, _srcs, _includes, \
+                  _libs, _libs_dirs, _where) \
+    __buildProject(false, _target_name, _comp_options, _link_options, _srcs, \
+                   _includes, _libs, _libs_dirs, _where)
+
+void __buildProject(bool is_lib, const char* target_name,
              const char* comp_options, const char* link_options,
              const char** srcs, const char** includes, const char** libs,
              const char** lib_dirs, const char* where);
@@ -109,7 +126,7 @@ void cleanBuild(void)
 #endif
 }
 
-void buildProject(bool is_lib, const char* target_name,
+void __buildProject(bool is_lib, const char* target_name,
              const char* comp_options, const char* link_options,
              const char** srcs, const char** includes, const char** libs,
              const char** lib_dirs, const char* where)

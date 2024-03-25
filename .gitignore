@@ -1,6 +1,8 @@
-/cb
-/build
-/lib/lua/src/*.o
-/lib/lua/src/lua
-/lib/lua/src/luac
-/.ccls-cache
+/target
+
+
+# Added by cargo
+#
+# already existing elements were commented out
+
+#/target

@@ -1,0 +1,16 @@
+[package]
+name = "aedif"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mlua = { version = "0.9.6", features = [
+  "lua54",
+  "vendored",
+  "serde",
+  "serialize",
+  "macros",
+] }
+serde = { version = "1.0.197", features = ["derive"] }
